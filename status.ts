@@ -1,7 +1,4 @@
-/**
- * Derives a document's file-level status from its blocks. Never stored —
- * see ADR-015 and the TranslationStatus doc comment in types.ts.
- */
+/** Derives a document's file-level status from its blocks. Never stored (ADR-015). */
 import type { BlockEntry, BlockStatus, TranslationStatus } from "./types.js";
 
 export const VALID_BLOCK_STATUSES: BlockStatus[] = ["in-progress", "complete", "verified", "needs-attention"];

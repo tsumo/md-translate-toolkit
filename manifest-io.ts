@@ -1,9 +1,5 @@
 /**
- * Shared read/write for manifest entries, so every script (add-source.ts,
- * set-status.ts, and resync.ts once built) serializes in the same
- * canonical field order — parse-mutate-stringify alone doesn't preserve
- * it, since a newly-set field lands at the end of the object instead of
- * its declared position.
+ * Read/write manifest entries with a canonical field order.
  */
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
@@ -15,7 +11,9 @@ function canonicalBlock(block: BlockEntry): BlockEntry {
     kind: block.kind,
     fingerprint: block.fingerprint,
     status: block.status,
-    ...(block.status_comment !== undefined ? { status_comment: block.status_comment } : {}),
+    ...(block.status_comment !== undefined
+      ? { status_comment: block.status_comment }
+      : {}),
   };
 }
 
@@ -35,7 +33,13 @@ export function readManifestEntry(manifestPath: string): ManifestEntry {
   return JSON.parse(readFileSync(manifestPath, "utf-8"));
 }
 
-export function writeManifestEntry(manifestPath: string, entry: ManifestEntry): void {
+export function writeManifestEntry(
+  manifestPath: string,
+  entry: ManifestEntry,
+): void {
   mkdirSync(dirname(manifestPath), { recursive: true });
-  writeFileSync(manifestPath, JSON.stringify(canonicalEntry(entry), null, 2) + "\n");
+  writeFileSync(
+    manifestPath,
+    JSON.stringify(canonicalEntry(entry), null, 2) + "\n",
+  );
 }

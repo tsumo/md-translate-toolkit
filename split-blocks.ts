@@ -13,7 +13,7 @@ import { toString as nodeToString } from "mdast-util-to-string";
 import type { Root, RootContent, PhrasingContent } from "mdast";
 import type { BlockEntry } from "./types.js";
 
-/** Purely content-derived block data — no status, which is human-owned (BlockEntry). */
+/** Purely content-derived block data — no status, which is human-owned. */
 export type ContentBlock = Pick<BlockEntry, "index" | "kind" | "fingerprint">;
 
 const parser = unified().use(remarkParse).use(remarkGfm);
@@ -55,13 +55,7 @@ export function stringifyBlocks(nodes: RootContent[]): string {
   return readableStringify.stringify(root);
 }
 
-/**
- * Marks an untranslated block. A block is untranslated iff its text starts
- * with this marker — robust regardless of what preview text follows it,
- * and survives a translator eventually deleting marker + preview together
- * (ADR-020, amending ADR-005/ADR-007: the skeleton now carries a
- * truncated original-text preview, not just a bare marker).
- */
+/** Untranslated-block marker (ADR-005, ADR-007). A block is untranslated iff its text starts with this. */
 export const PLACEHOLDER_MARKER = "(не переведено)";
 
 const PREVIEW_MAX_CHARS = 80;
@@ -87,12 +81,10 @@ function markerWithPreview(node: RootContent): PhrasingContent[] {
 
 /**
  * A placeholder node of the same kind as `node`: the marker plus a
- * truncated preview of the original's text, so the skeleton is readable
- * standalone while translation status stays derivable from the marker
- * prefix (`isUntranslated`). Preserves the structural detail that's cheap
- * to keep (heading depth, list ordered-ness, code language) without
- * deep-cloning nested content, since v1 tracks blocks at the top level
- * only (ADR-003: list items aren't individually aligned).
+ * truncated preview of the original's text (ADR-005, ADR-007). Preserves
+ * structural detail that's cheap to keep (heading depth, list
+ * ordered-ness, code language) without deep-cloning nested content —
+ * blocks are tracked at the top level only (ADR-003).
  */
 export function placeholderFor(node: RootContent): RootContent {
   switch (node.type) {
@@ -140,14 +132,7 @@ export function isUntranslated(node: RootContent): boolean {
   return text.startsWith(PLACEHOLDER_MARKER);
 }
 
-/**
- * How many of a translation file's blocks are still untranslated vs. its
- * total block count. The manifest's `status` field is human-set (ADR-015)
- * and can't be derived from this alone (`complete` and `verified` are
- * judgment calls) — but `translated === total` is the one thing that
- * *can* be checked automatically, and is required before either of those
- * two claims is allowed to stand.
- */
+/** Content-derived progress: how many blocks are untranslated vs. total. */
 export function translationProgress(markdown: string): { translated: number; total: number } {
   const nodes = parseBlocks(markdown);
   const translated = nodes.filter((node) => !isUntranslated(node)).length;

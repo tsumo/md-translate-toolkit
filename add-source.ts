@@ -1,8 +1,7 @@
 /**
  * Claims an upstream file: fetches it at a pinned commit, writes its
  * manifest entry, and generates a translation skeleton (every block
- * present, each marked untranslated with a text preview — ADR-007,
- * ADR-020). See TODO.md Phase 1.
+ * present, each marked untranslated with a text preview — ADR-007).
  *
  * Usage: tsx tools/add-source.ts <path> [--commit <sha>]
  *   <path> is relative to the upstream repo root, e.g.

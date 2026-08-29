@@ -1,8 +1,7 @@
 /**
  * Validates every manifest/**\/*.json file against the JSON Schema
- * generated from ManifestEntry (tools/types.ts). The schema is generated
- * fresh on every run rather than checked in, so tools/types.ts stays the
- * single source of truth for the shape (see TODO.md Phase 1).
+ * generated from ManifestEntry. Generated fresh on every run rather than
+ * checked in, so there's one source of truth for the shape.
  */
 import { readFileSync } from "node:fs";
 import { glob } from "glob";

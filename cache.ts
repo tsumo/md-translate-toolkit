@@ -1,10 +1,7 @@
 /**
- * Local gitignored cache for fetched original files, keyed by commit+path
- * (see repo layout in README.md). Safe to cache indefinitely: content is
- * addressed by an immutable commit hash, so a cache hit is always valid —
- * git guarantees the commit is the file's identity (ADR-018 relies on the
- * same guarantee for CI caching). Shared by add-source.ts now, and by
- * fetch-originals.ts/verify.ts once built (Phase 2/3).
+ * Local gitignored cache for fetched original files, keyed by commit+path.
+ * Safe to cache indefinitely: content is addressed by an immutable commit
+ * hash, so a cache hit is always valid (ADR-018).
  */
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
