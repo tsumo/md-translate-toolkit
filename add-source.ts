@@ -13,6 +13,7 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
 import { parseArgs } from "node:util";
 import { fetchOriginal } from "./cache.js";
+import { writeManifestEntry } from "./manifest-io.js";
 import { parseBlocks, fingerprintBlock, placeholderFor, stringifyBlocks } from "./split-blocks.js";
 import type { BlockEntry, ManifestEntry } from "./types.js";
 
@@ -52,6 +53,7 @@ async function main() {
     index,
     kind: node.type,
     fingerprint: fingerprintBlock(node),
+    status: "in-progress",
   }));
 
   const translationPath = `translations/${path}`;
@@ -61,14 +63,12 @@ async function main() {
     source_commit: commit,
     source_sha256: sha256,
     translation_path: translationPath,
-    status: "not-started",
     last_synced: new Date().toISOString().slice(0, 10),
     blocks,
   };
 
   const manifestPath = `manifest/${path}.json`;
-  mkdirSync(dirname(manifestPath), { recursive: true });
-  writeFileSync(manifestPath, JSON.stringify(manifestEntry, null, 2) + "\n");
+  writeManifestEntry(manifestPath, manifestEntry);
 
   const skeletonNodes = nodes.map((node) => placeholderFor(node));
   const skeleton = stringifyBlocks(skeletonNodes);

@@ -5,6 +5,14 @@
  * status, ADR-017 fingerprint algorithm).
  */
 
+/**
+ * A block's human-owned translation status. No "not-started": a single
+ * block has no smaller unit to be pending within, so it's either
+ * `in-progress` (still a placeholder, or drafted but not yet confirmed)
+ * or one of the three judgment calls a script can't make on its own.
+ */
+export type BlockStatus = "in-progress" | "complete" | "verified" | "needs-attention";
+
 /** A block's position and kind within a document, plus a content fingerprint. */
 export interface BlockEntry {
   index: number;
@@ -12,8 +20,17 @@ export interface BlockEntry {
   kind: string;
   /** sha256 of the block's normalized re-serialization, truncated to 16 hex chars. */
   fingerprint: string;
+  status: BlockStatus;
+  status_comment?: string;
 }
 
+/**
+ * A document's status, always *derived* from its blocks
+ * (`deriveFileStatus`, tools/status.ts) — never stored. `not-started` and
+ * `in-progress` distinguish "zero content drafted" from "some content
+ * drafted, nothing confirmed" and can only be told apart by scanning
+ * actual content, not the blocks' stored status field alone.
+ */
 export type TranslationStatus =
   | "not-started"
   | "in-progress"
@@ -28,8 +45,6 @@ export interface ManifestEntry {
   source_commit: string;
   source_sha256: string;
   translation_path: string;
-  status: TranslationStatus;
-  status_comment?: string;
   /** ISO date (YYYY-MM-DD) `resync.ts` (or `add-source.ts` at claim time) last ran. */
   last_synced: string;
   blocks: BlockEntry[];

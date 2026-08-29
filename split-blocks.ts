@@ -13,6 +13,9 @@ import { toString as nodeToString } from "mdast-util-to-string";
 import type { Root, RootContent, PhrasingContent } from "mdast";
 import type { BlockEntry } from "./types.js";
 
+/** Purely content-derived block data — no status, which is human-owned (BlockEntry). */
+export type ContentBlock = Pick<BlockEntry, "index" | "kind" | "fingerprint">;
+
 const parser = unified().use(remarkParse).use(remarkGfm);
 
 /** Parse Markdown into its top-level block nodes (headings, paragraphs, lists, etc.). */
@@ -35,7 +38,7 @@ export function fingerprintBlock(node: RootContent): string {
 }
 
 /** Full block list + fingerprints for a document, in original order. */
-export function splitBlocks(markdown: string): BlockEntry[] {
+export function splitBlocks(markdown: string): ContentBlock[] {
   return parseBlocks(markdown).map((node, index) => ({
     index,
     kind: node.type,
@@ -135,4 +138,18 @@ export function placeholderFor(node: RootContent): RootContent {
 export function isUntranslated(node: RootContent): boolean {
   const text = node.type === "code" ? node.value : nodeToString(node);
   return text.startsWith(PLACEHOLDER_MARKER);
+}
+
+/**
+ * How many of a translation file's blocks are still untranslated vs. its
+ * total block count. The manifest's `status` field is human-set (ADR-015)
+ * and can't be derived from this alone (`complete` and `verified` are
+ * judgment calls) — but `translated === total` is the one thing that
+ * *can* be checked automatically, and is required before either of those
+ * two claims is allowed to stand.
+ */
+export function translationProgress(markdown: string): { translated: number; total: number } {
+  const nodes = parseBlocks(markdown);
+  const translated = nodes.filter((node) => !isUntranslated(node)).length;
+  return { translated, total: nodes.length };
 }
