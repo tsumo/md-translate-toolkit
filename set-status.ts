@@ -44,8 +44,7 @@ if (status === "needs-attention" && !values.comment) {
 const manifestPath = `manifest/${path}.json`;
 const entry = readManifestEntry(manifestPath);
 
-const targetIndices =
-  values.block !== undefined ? [Number(values.block)] : entry.blocks.map((b) => b.index);
+const targetIndices = values.block !== undefined ? [Number(values.block)] : entry.blocks.map((b) => b.index);
 
 for (const index of targetIndices) {
   if (!entry.blocks[index]) {

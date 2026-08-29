@@ -6,11 +6,7 @@
  */
 
 /** A block's human-set status (ADR-015). */
-export type BlockStatus =
-  | "in-progress"
-  | "complete"
-  | "verified"
-  | "needs-attention";
+export type BlockStatus = "in-progress" | "complete" | "verified" | "needs-attention";
 
 /** A block's position and kind within a document, plus a content fingerprint. */
 export interface BlockEntry {
@@ -24,12 +20,7 @@ export interface BlockEntry {
 }
 
 /** A document's status, derived from its blocks. */
-export type TranslationStatus =
-  | "not-started"
-  | "in-progress"
-  | "complete"
-  | "verified"
-  | "needs-attention";
+export type TranslationStatus = "not-started" | "in-progress" | "complete" | "verified" | "needs-attention";
 
 /** One manifest entry: links a translation file to a pinned upstream original. */
 export interface ManifestEntry {

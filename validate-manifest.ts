@@ -4,9 +4,9 @@
  * checked in, so there's one source of truth for the shape.
  */
 import { readFileSync } from "node:fs";
+import { Ajv } from "ajv";
 import { glob } from "glob";
 import { createGenerator } from "ts-json-schema-generator";
-import { Ajv } from "ajv";
 
 const schema = createGenerator({
   path: "tools/types.ts",

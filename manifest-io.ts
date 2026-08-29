@@ -11,9 +11,7 @@ function canonicalBlock(block: BlockEntry): BlockEntry {
     kind: block.kind,
     fingerprint: block.fingerprint,
     status: block.status,
-    ...(block.status_comment !== undefined
-      ? { status_comment: block.status_comment }
-      : {}),
+    ...(block.status_comment !== undefined ? { status_comment: block.status_comment } : {}),
   };
 }
 
@@ -33,13 +31,7 @@ export function readManifestEntry(manifestPath: string): ManifestEntry {
   return JSON.parse(readFileSync(manifestPath, "utf-8"));
 }
 
-export function writeManifestEntry(
-  manifestPath: string,
-  entry: ManifestEntry,
-): void {
+export function writeManifestEntry(manifestPath: string, entry: ManifestEntry): void {
   mkdirSync(dirname(manifestPath), { recursive: true });
-  writeFileSync(
-    manifestPath,
-    JSON.stringify(canonicalEntry(entry), null, 2) + "\n",
-  );
+  writeFileSync(manifestPath, JSON.stringify(canonicalEntry(entry), null, 2) + "\n");
 }

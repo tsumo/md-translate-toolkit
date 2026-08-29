@@ -5,12 +5,12 @@
  * same splitter, no special-casing (see TODO.md Phase 2).
  */
 import { createHash } from "node:crypto";
-import { unified } from "unified";
+import type { PhrasingContent, Root, RootContent } from "mdast";
+import { toString as nodeToString } from "mdast-util-to-string";
+import remarkGfm from "remark-gfm";
 import remarkParse from "remark-parse";
 import remarkStringify from "remark-stringify";
-import remarkGfm from "remark-gfm";
-import { toString as nodeToString } from "mdast-util-to-string";
-import type { Root, RootContent, PhrasingContent } from "mdast";
+import { unified } from "unified";
 import type { BlockEntry } from "./types.js";
 
 /** Purely content-derived block data — no status, which is human-owned. */
@@ -76,7 +76,9 @@ function emphasized(text: string): PhrasingContent {
 /** `[marker, preview text]` as phrasing content, or just `[marker]` if there's no text to preview. */
 function markerWithPreview(node: RootContent): PhrasingContent[] {
   const preview = truncatePreview(nodeToString(node), PREVIEW_MAX_CHARS);
-  return preview ? [emphasized(PLACEHOLDER_MARKER), { type: "text", value: ` ${preview}` }] : [emphasized(PLACEHOLDER_MARKER)];
+  return preview
+    ? [emphasized(PLACEHOLDER_MARKER), { type: "text", value: ` ${preview}` }]
+    : [emphasized(PLACEHOLDER_MARKER)];
 }
 
 /**
@@ -120,9 +122,7 @@ export function placeholderFor(node: RootContent): RootContent {
     case "thematicBreak":
       return { type: "thematicBreak" };
     default:
-      throw new Error(
-        `placeholderFor: unsupported block kind "${node.type}" — add support once seen in a real file.`,
-      );
+      throw new Error(`placeholderFor: unsupported block kind "${node.type}" — add support once seen in a real file.`);
   }
 }
 

@@ -13,7 +13,7 @@ import { dirname } from "node:path";
 import { parseArgs } from "node:util";
 import { fetchOriginal } from "./cache.js";
 import { writeManifestEntry } from "./manifest-io.js";
-import { parseBlocks, fingerprintBlock, placeholderFor, stringifyBlocks } from "./split-blocks.js";
+import { fingerprintBlock, parseBlocks, placeholderFor, stringifyBlocks } from "./split-blocks.js";
 import type { BlockEntry, ManifestEntry } from "./types.js";
 
 const SOURCE_REPO = "OriginalMadman/Ars-Magica-Open-License";
