@@ -7,9 +7,33 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 
 const CACHE_ROOT = ".cache/originals";
+const MAX_ATTEMPTS = 4;
+const RETRY_STATUS = new Set([429, 500, 502, 503, 504]);
 
 function cachePath(commit: string, path: string): string {
   return join(CACHE_ROOT, commit, path);
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function fetchWithRetry(url: string, description: string): Promise<Response> {
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    const outcome = await fetch(url).then(
+      (res) => ({ res }),
+      (err: unknown) => ({ err }),
+    );
+    if ("res" in outcome && outcome.res.ok) return outcome.res;
+
+    const retryable = "err" in outcome || RETRY_STATUS.has(outcome.res.status);
+    const reason = "err" in outcome ? `${outcome.err}` : `${outcome.res.status} ${outcome.res.statusText}`;
+    if (!retryable || attempt === MAX_ATTEMPTS) {
+      throw new Error(`Failed to fetch ${description}: ${reason}`);
+    }
+    await sleep(2 ** attempt * 250);
+  }
+  throw new Error(`Failed to fetch ${description}: exhausted retries`);
 }
 
 /**
@@ -26,10 +50,7 @@ export async function fetchOriginal(repo: string, commit: string, path: string):
   console.log(`fetching   ${commit.slice(0, 7)} ${path}`);
   const encodedPath = path.split("/").map(encodeURIComponent).join("/");
   const url = `https://raw.githubusercontent.com/${repo}/${commit}/${encodedPath}`;
-  const res = await fetch(url);
-  if (!res.ok) {
-    throw new Error(`Failed to fetch "${path}" at ${commit}: ${res.status} ${res.statusText}`);
-  }
+  const res = await fetchWithRetry(url, `"${path}" at ${commit}`);
   const content = await res.text();
 
   mkdirSync(dirname(cached), { recursive: true });
