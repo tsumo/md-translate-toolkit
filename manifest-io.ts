@@ -33,5 +33,5 @@ export function readManifestEntry(manifestPath: string): ManifestEntry {
 
 export function writeManifestEntry(manifestPath: string, entry: ManifestEntry): void {
   mkdirSync(dirname(manifestPath), { recursive: true });
-  writeFileSync(manifestPath, JSON.stringify(canonicalEntry(entry), null, 2) + "\n");
+  writeFileSync(manifestPath, `${JSON.stringify(canonicalEntry(entry), null, 2)}\n`);
 }
