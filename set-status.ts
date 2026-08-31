@@ -16,8 +16,8 @@ import { readFileSync } from "node:fs";
 import { parseArgs } from "node:util";
 import { readManifestEntry, writeManifestEntry } from "./manifest-io.js";
 import { manifestPathFor } from "./paths.js";
-import { isUntranslated, parseBlocks, translationProgress } from "./split-blocks.js";
-import { deriveFileStatus, isValidBlockStatus, VALID_BLOCK_STATUSES } from "./status.js";
+import { parseBlocks, translationProgress } from "./split-blocks.js";
+import { deriveFileStatus, isInvalidCompletion, isValidBlockStatus, VALID_BLOCK_STATUSES } from "./status.js";
 
 const { positionals, values } = parseArgs({
   args: process.argv.slice(2),
@@ -54,18 +54,16 @@ for (const index of targetIndices) {
   }
 }
 
-if (status === "complete" || status === "verified") {
-  const translationNodes = parseBlocks(readFileSync(entry.translation_path, "utf-8"));
-  const stillPlaceholder = targetIndices.filter((index) => isUntranslated(translationNodes[index]));
-  if (stillPlaceholder.length > 0) {
-    const MAX_LISTED = 10;
-    const list =
-      stillPlaceholder.length <= MAX_LISTED
-        ? stillPlaceholder.join(", ")
-        : `${stillPlaceholder.slice(0, MAX_LISTED).join(", ")}, … (${stillPlaceholder.length} total)`;
-    console.error(`Cannot set "${status}": block(s) ${list} still hold a placeholder in ${entry.translation_path}.`);
-    process.exit(1);
-  }
+const translationNodes = parseBlocks(readFileSync(entry.translation_path, "utf-8"));
+const stillPlaceholder = targetIndices.filter((index) => isInvalidCompletion(status, translationNodes[index]));
+if (stillPlaceholder.length > 0) {
+  const MAX_LISTED = 10;
+  const list =
+    stillPlaceholder.length <= MAX_LISTED
+      ? stillPlaceholder.join(", ")
+      : `${stillPlaceholder.slice(0, MAX_LISTED).join(", ")}, … (${stillPlaceholder.length} total)`;
+  console.error(`Cannot set "${status}": block(s) ${list} still hold a placeholder in ${entry.translation_path}.`);
+  process.exit(1);
 }
 
 for (const index of targetIndices) {

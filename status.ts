@@ -1,10 +1,16 @@
 /** Derives a document's file-level status from its blocks. Never stored (ADR-015). */
+import type { RootContent } from "mdast";
+import { isUntranslated } from "./split-blocks.js";
 import type { BlockEntry, BlockStatus, TranslationStatus } from "./types.js";
 
 export const VALID_BLOCK_STATUSES: BlockStatus[] = ["in-progress", "complete", "verified", "needs-attention"];
 
 export function isValidBlockStatus(value: string): value is BlockStatus {
   return (VALID_BLOCK_STATUSES as string[]).includes(value);
+}
+
+export function isInvalidCompletion(status: BlockStatus, node: RootContent): boolean {
+  return (status === "complete" || status === "verified") && isUntranslated(node);
 }
 
 export function deriveFileStatus(

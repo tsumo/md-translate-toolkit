@@ -14,7 +14,8 @@ import { relative } from "node:path";
 import { fetchOriginal } from "./cache.js";
 import { readManifestEntry } from "./manifest-io.js";
 import { globManifestPaths, manifestPathFor, PROJECT_ROOT } from "./paths.js";
-import { isUntranslated, parseBlocks, splitBlocks } from "./split-blocks.js";
+import { parseBlocks, splitBlocks } from "./split-blocks.js";
+import { isInvalidCompletion } from "./status.js";
 import type { ManifestEntry } from "./types.js";
 
 async function verifyEntry(entry: ManifestEntry): Promise<string[]> {
@@ -54,7 +55,7 @@ async function verifyEntry(entry: ManifestEntry): Promise<string[]> {
         );
       }
       const status = entry.blocks[i].status;
-      if ((status === "complete" || status === "verified") && isUntranslated(translationNodes[i])) {
+      if (isInvalidCompletion(status, translationNodes[i])) {
         errors.push(`block ${i}: status "${status}" but still holds the untranslated placeholder`);
       }
     }
