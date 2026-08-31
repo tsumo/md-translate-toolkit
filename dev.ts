@@ -90,8 +90,9 @@ const server = createServer(async (req, res) => {
       return;
     }
     if (url.pathname === "/") {
+      const page = await renderIndexPage();
       res.writeHead(200, { "content-type": "text/html; charset=utf-8" });
-      res.end(await renderIndexPage());
+      res.end(page);
       return;
     }
     if (url.pathname.startsWith("/doc/") && url.pathname.endsWith(".html")) {
@@ -100,8 +101,9 @@ const server = createServer(async (req, res) => {
         .replace(/\.html$/, "");
       const manifestPath = `manifest/${originalPath}.json`;
       const entry = readManifestEntry(manifestPath);
+      const page = await renderDocumentPage(entry);
       res.writeHead(200, { "content-type": "text/html; charset=utf-8" });
-      res.end(await renderDocumentPage(entry));
+      res.end(page);
       return;
     }
     res.writeHead(404, { "content-type": "text/plain" });
