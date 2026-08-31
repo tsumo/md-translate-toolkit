@@ -6,14 +6,14 @@
  *
  * Usage: tsx tools/dev.ts [--port <number>]
  */
-import { existsSync, readFileSync, watch } from "node:fs";
+import { existsSync, watch } from "node:fs";
 import type { ServerResponse } from "node:http";
 import { createServer } from "node:http";
 import { parseArgs } from "node:util";
 import { fetchOriginal } from "./cache.js";
 import { readManifestEntry } from "./manifest-io.js";
 import { globManifestPaths } from "./paths.js";
-import { documentToBlockHtml, pageWrapper, renderDocumentBody, renderIndexItem } from "./render.js";
+import { documentToBlockHtml, renderDocumentPage, renderIndexPage } from "./render.js";
 import { parseBlocks } from "./split-blocks.js";
 import type { ManifestEntry } from "./types.js";
 
@@ -59,23 +59,6 @@ async function renderOriginalHtml(entry: ManifestEntry): Promise<string[]> {
   return html;
 }
 
-async function renderDocumentPage(entry: ManifestEntry): Promise<string> {
-  const translation = readFileSync(entry.translation_path, "utf-8");
-  const translationNodes = parseBlocks(translation);
-
-  const originalHtml = await renderOriginalHtml(entry);
-  const translationHtml = documentToBlockHtml(translationNodes);
-
-  const body = renderDocumentBody("/", originalHtml, translationHtml, translationNodes);
-  return pageWrapper(entry.original_path, body, LIVE_RELOAD_SCRIPT);
-}
-
-async function renderIndexPage(): Promise<string> {
-  const manifestPaths = await globManifestPaths();
-  const items = manifestPaths.map((manifestPath) => renderIndexItem(readManifestEntry(manifestPath))).join("");
-  return pageWrapper("Translations", `<h1>Claimed documents</h1><ul class="index">${items}</ul>`, LIVE_RELOAD_SCRIPT);
-}
-
 const server = createServer(async (req, res) => {
   try {
     const url = new URL(req.url ?? "/", `http://localhost:${PORT}`);
@@ -90,7 +73,9 @@ const server = createServer(async (req, res) => {
       return;
     }
     if (url.pathname === "/") {
-      const page = await renderIndexPage();
+      const manifestPaths = await globManifestPaths();
+      const entries = manifestPaths.map((manifestPath) => readManifestEntry(manifestPath));
+      const page = renderIndexPage(entries, LIVE_RELOAD_SCRIPT);
       res.writeHead(200, { "content-type": "text/html; charset=utf-8" });
       res.end(page);
       return;
@@ -101,7 +86,7 @@ const server = createServer(async (req, res) => {
         .replace(/\.html$/, "");
       const manifestPath = `manifest/${originalPath}.json`;
       const entry = readManifestEntry(manifestPath);
-      const page = await renderDocumentPage(entry);
+      const page = await renderDocumentPage(entry, renderOriginalHtml, "/", LIVE_RELOAD_SCRIPT);
       res.writeHead(200, { "content-type": "text/html; charset=utf-8" });
       res.end(page);
       return;

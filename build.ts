@@ -6,12 +6,12 @@
  * Usage: tsx tools/build.ts — builds directly, with no checksum gate.
  * `npm run build` chains that gate first.
  */
-import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
 import { fetchOriginal } from "./cache.js";
 import { readManifestEntry } from "./manifest-io.js";
 import { globManifestPaths, PROJECT_ROOT } from "./paths.js";
-import { documentToBlockHtml, pageWrapper, renderDocumentBody, renderIndexItem } from "./render.js";
+import { documentToBlockHtml, renderDocumentPage, renderIndexPage } from "./render.js";
 import { parseBlocks } from "./split-blocks.js";
 import type { ManifestEntry } from "./types.js";
 
@@ -24,29 +24,25 @@ function outputPathFor(entry: ManifestEntry): string {
   return join(SITE_ROOT, "doc", `${entry.original_path}.html`);
 }
 
-async function buildDocumentPage(entry: ManifestEntry): Promise<void> {
+async function getOriginalHtml(entry: ManifestEntry): Promise<string[]> {
   const original = await fetchOriginal(entry.source_repo, entry.source_commit, entry.original_path);
-  const translation = readFileSync(entry.translation_path, "utf-8");
-  const translationNodes = parseBlocks(translation);
+  return documentToBlockHtml(parseBlocks(original));
+}
 
-  const originalHtml = documentToBlockHtml(parseBlocks(original));
-  const translationHtml = documentToBlockHtml(translationNodes);
-
+async function buildDocumentPage(entry: ManifestEntry): Promise<void> {
   const outPath = outputPathFor(entry);
   // A document page can sit several directories deep (mirroring `original_path`), and the
   // site is served from an unknown base path (e.g. a GitHub Pages project subpath). So the
   // link back to the index is relative to this page's own file, not an absolute `/`.
   const backHref = relative(dirname(outPath), join(SITE_ROOT, "index.html"));
-  const body = renderDocumentBody(backHref, originalHtml, translationHtml, translationNodes);
+  const page = await renderDocumentPage(entry, getOriginalHtml, backHref);
 
   mkdirSync(dirname(outPath), { recursive: true });
-  writeFileSync(outPath, pageWrapper(entry.original_path, body));
+  writeFileSync(outPath, page);
 }
 
 function buildIndexPage(entries: ManifestEntry[]): void {
-  const items = entries.map((entry) => renderIndexItem(entry)).join("");
-  const page = pageWrapper("Translations", `<h1>Claimed documents</h1><ul class="index">${items}</ul>`);
-  writeFileSync(join(SITE_ROOT, "index.html"), page);
+  writeFileSync(join(SITE_ROOT, "index.html"), renderIndexPage(entries));
 }
 
 async function main(): Promise<void> {

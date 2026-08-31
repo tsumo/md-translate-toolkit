@@ -10,7 +10,7 @@ import rehypeSlug from "rehype-slug";
 import rehypeStringify from "rehype-stringify";
 import remarkRehype from "remark-rehype";
 import { unified } from "unified";
-import { isUntranslated, translationProgress } from "./split-blocks.js";
+import { isUntranslated, parseBlocks, translationProgress } from "./split-blocks.js";
 import { deriveFileStatus } from "./status.js";
 import type { ManifestEntry } from "./types.js";
 
@@ -93,6 +93,25 @@ export function renderDocumentBody(
     rows.push(`<div>${originalHtml[i] ?? ""}</div><div${rightClass}>${translationHtml[i] ?? ""}</div>`);
   }
   return `<p><a href="${backHref}">&larr; all documents</a></p><div class="columns">${rows.join("")}</div>`;
+}
+
+export async function renderDocumentPage(
+  entry: ManifestEntry,
+  getOriginalHtml: (entry: ManifestEntry) => Promise<string[]>,
+  backHref: string,
+  extraBodyHtml = "",
+): Promise<string> {
+  const translationNodes = parseBlocks(readFileSync(entry.translation_path, "utf-8"));
+  const originalHtml = await getOriginalHtml(entry);
+  const translationHtml = documentToBlockHtml(translationNodes);
+
+  const body = renderDocumentBody(backHref, originalHtml, translationHtml, translationNodes);
+  return pageWrapper(entry.original_path, body, extraBodyHtml);
+}
+
+export function renderIndexPage(entries: ManifestEntry[], extraBodyHtml = ""): string {
+  const items = entries.map((entry) => renderIndexItem(entry)).join("");
+  return pageWrapper("Translations", `<h1>Claimed documents</h1><ul class="index">${items}</ul>`, extraBodyHtml);
 }
 
 /** One `<li>` entry for the index page: link, status badge, progress, and any flagged blocks. */
