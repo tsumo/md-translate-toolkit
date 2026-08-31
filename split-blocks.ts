@@ -75,7 +75,7 @@ function emphasized(text: string): PhrasingContent {
 
 /** `[marker, preview text]` as phrasing content, or just `[marker]` if there's no text to preview. */
 function markerWithPreview(node: RootContent): PhrasingContent[] {
-  const preview = truncatePreview(nodeToString(node), PREVIEW_MAX_CHARS);
+  const preview = truncatePreview(nodeToString(node, { includeHtml: false }), PREVIEW_MAX_CHARS);
   return preview
     ? [emphasized(PLACEHOLDER_MARKER), { type: "text", value: ` ${preview}` }]
     : [emphasized(PLACEHOLDER_MARKER)];

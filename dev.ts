@@ -22,7 +22,9 @@ import type { ManifestEntry } from "./types.js";
 const { values } = parseArgs({ args: process.argv.slice(2), options: { port: { type: "string" } } });
 const PORT = Number(values.port ?? 4000);
 
-const toHtml = unified().use(remarkRehype).use(rehypeStringify);
+const toHtml = unified()
+  .use(remarkRehype, { allowDangerousHtml: true })
+  .use(rehypeStringify, { allowDangerousHtml: true });
 
 function blockToHtml(node: RootContent): string {
   const root: Root = { type: "root", children: [node] };
