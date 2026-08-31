@@ -10,7 +10,7 @@ import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
 import { fetchOriginal } from "./cache.js";
 import { readManifestEntry } from "./manifest-io.js";
-import { globManifestPaths, PROJECT_ROOT } from "./paths.js";
+import { globManifestPaths, PROJECT_ROOT, sitePathFor } from "./paths.js";
 import { documentToBlockHtml, renderDocumentPage, renderIndexPage } from "./render.js";
 import { parseBlocks } from "./split-blocks.js";
 import type { ManifestEntry } from "./types.js";
@@ -18,10 +18,10 @@ import type { ManifestEntry } from "./types.js";
 const SITE_ROOT = join(PROJECT_ROOT, "site");
 
 function outputPathFor(entry: ManifestEntry): string {
-  // Use the raw path, not `hrefForDoc`'s URL-encoded form: a browser decodes
-  // an encoded href back to these exact characters when it requests the
-  // page, so the file on disk must be named with the real characters too.
-  return join(SITE_ROOT, "doc", `${entry.original_path}.html`);
+  // The raw path, not URL-encoded: a browser decodes an encoded href back to
+  // these exact characters when it requests the page, so the file on disk
+  // must be named with the real characters too.
+  return join(SITE_ROOT, sitePathFor(entry.original_path));
 }
 
 async function getOriginalHtml(entry: ManifestEntry): Promise<string[]> {

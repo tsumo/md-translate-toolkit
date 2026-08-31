@@ -12,7 +12,7 @@ import { createServer } from "node:http";
 import { parseArgs } from "node:util";
 import { fetchOriginal } from "./cache.js";
 import { readManifestEntry } from "./manifest-io.js";
-import { globManifestPaths } from "./paths.js";
+import { globManifestPaths, manifestPathFor } from "./paths.js";
 import { documentToBlockHtml, renderDocumentPage, renderIndexPage } from "./render.js";
 import { parseBlocks } from "./split-blocks.js";
 import type { ManifestEntry } from "./types.js";
@@ -84,7 +84,7 @@ const server = createServer(async (req, res) => {
       const originalPath = decodeURIComponent(url.pathname)
         .replace(/^\/doc\//, "")
         .replace(/\.html$/, "");
-      const manifestPath = `manifest/${originalPath}.json`;
+      const manifestPath = manifestPathFor(originalPath);
       const entry = readManifestEntry(manifestPath);
       const page = await renderDocumentPage(entry, renderOriginalHtml, "/", LIVE_RELOAD_SCRIPT);
       res.writeHead(200, { "content-type": "text/html; charset=utf-8" });

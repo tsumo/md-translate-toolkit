@@ -10,6 +10,7 @@ import rehypeSlug from "rehype-slug";
 import rehypeStringify from "rehype-stringify";
 import remarkRehype from "remark-rehype";
 import { unified } from "unified";
+import { hrefForDoc } from "./paths.js";
 import { isUntranslated, parseBlocks, translationProgress } from "./split-blocks.js";
 import { deriveFileStatus } from "./status.js";
 import type { ManifestEntry } from "./types.js";
@@ -35,16 +36,6 @@ export function documentToBlockHtml(nodes: RootContent[]): string[] {
 
 function escapeHtml(text: string): string {
   return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-}
-
-/**
- * A document's page path, relative to the site root, e.g. `doc/reviewed/Foo.md.html`.
- * A real `.html` file, not a directory with an `index.html` inside it — this way
- * the link works whether it is opened over `file://`, any static server, or GitHub
- * Pages, with no dependency on a server's directory-index behavior.
- */
-export function hrefForDoc(originalPath: string): string {
-  return `doc/${encodeURI(originalPath)}.html`;
 }
 
 const PAGE_STYLE = `

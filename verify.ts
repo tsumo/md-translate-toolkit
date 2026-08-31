@@ -13,7 +13,7 @@ import { readFileSync } from "node:fs";
 import { relative } from "node:path";
 import { fetchOriginal } from "./cache.js";
 import { readManifestEntry } from "./manifest-io.js";
-import { globManifestPaths, PROJECT_ROOT } from "./paths.js";
+import { globManifestPaths, manifestPathFor, PROJECT_ROOT } from "./paths.js";
 import { isUntranslated, parseBlocks, splitBlocks } from "./split-blocks.js";
 import type { ManifestEntry } from "./types.js";
 
@@ -65,7 +65,7 @@ async function verifyEntry(entry: ManifestEntry): Promise<string[]> {
 
 async function main() {
   const path = process.argv[2];
-  const manifestPaths = path ? [`manifest/${path}.json`] : await globManifestPaths();
+  const manifestPaths = path ? [manifestPathFor(path)] : await globManifestPaths();
 
   if (manifestPaths.length === 0) {
     console.log("No manifest files found yet — nothing to verify.");

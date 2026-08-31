@@ -15,6 +15,7 @@
 import { readFileSync } from "node:fs";
 import { parseArgs } from "node:util";
 import { readManifestEntry, writeManifestEntry } from "./manifest-io.js";
+import { manifestPathFor } from "./paths.js";
 import { isUntranslated, parseBlocks, translationProgress } from "./split-blocks.js";
 import { deriveFileStatus, isValidBlockStatus, VALID_BLOCK_STATUSES } from "./status.js";
 
@@ -41,7 +42,7 @@ if (status === "needs-attention" && !values.comment) {
   process.exit(1);
 }
 
-const manifestPath = `manifest/${path}.json`;
+const manifestPath = manifestPathFor(path);
 const entry = readManifestEntry(manifestPath);
 
 const targetIndices = values.block !== undefined ? [Number(values.block)] : entry.blocks.map((b) => b.index);
