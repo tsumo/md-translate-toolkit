@@ -49,6 +49,23 @@ function escapeHtml(text: string): string {
   return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
+// Rendered HTML per block for a pinned original, keyed by commit + path.
+// An original is immutable for its pinned commit (ADR-018), so a cache
+// entry never goes stale on its own — only a `.cache/originals` change
+// (a re-fetch after a manifest edit) can invalidate it.
+const originalHtmlCache = new Map<string, string[]>();
+
+async function renderOriginalHtml(entry: ManifestEntry): Promise<string[]> {
+  const key = `${entry.source_commit}:${entry.original_path}`;
+  const cached = originalHtmlCache.get(key);
+  if (cached) return cached;
+
+  const original = await fetchOriginal(entry.source_repo, entry.source_commit, entry.original_path);
+  const html = documentToBlockHtml(parseBlocks(original));
+  originalHtmlCache.set(key, html);
+  return html;
+}
+
 // Open live-reload connections. A file change writes to every one of these.
 const liveReloadClients = new Set<ServerResponse>();
 
@@ -96,12 +113,10 @@ const PAGE_STYLE = `
 `;
 
 async function renderDocumentPage(entry: ManifestEntry): Promise<string> {
-  const original = await fetchOriginal(entry.source_repo, entry.source_commit, entry.original_path);
   const translation = readFileSync(entry.translation_path, "utf-8");
 
-  const originalNodes = parseBlocks(original);
   const translationNodes = parseBlocks(translation);
-  const originalHtml = documentToBlockHtml(originalNodes);
+  const originalHtml = await renderOriginalHtml(entry);
   const translationHtml = documentToBlockHtml(translationNodes);
   const rowCount = Math.max(originalHtml.length, translationHtml.length);
 
@@ -181,7 +196,10 @@ const server = createServer(async (req, res) => {
 });
 
 watchDirectory("translations", broadcastReload);
-watchDirectory(".cache/originals", broadcastReload);
+watchDirectory(".cache/originals", () => {
+  originalHtmlCache.clear();
+  broadcastReload();
+});
 
 server.listen(PORT, () => {
   console.log(`Dev server running at http://localhost:${PORT}`);
