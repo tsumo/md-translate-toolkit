@@ -1,10 +1,10 @@
 /**
  * Builds the static site into `/site/`: one page per claimed document, plus
- * an index page. Same rendering core as the local dev server
- * (`tools/dev.ts`), via `tools/render.ts`. This is the read-only public
- * artifact published to GitHub Pages.
+ * an index page. Same rendering core as the local dev server. This is the
+ * read-only public artifact published to GitHub Pages.
  *
- * Usage: tsx tools/build.ts
+ * Usage: tsx tools/build.ts — builds directly, with no checksum gate.
+ * `npm run build` chains that gate first.
  */
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
@@ -50,11 +50,11 @@ function buildIndexPage(entries: ManifestEntry[]): void {
 }
 
 async function main(): Promise<void> {
-  rmSync(SITE_ROOT, { recursive: true, force: true });
-  mkdirSync(SITE_ROOT, { recursive: true });
-
   const manifestPaths = (await glob("manifest/**/*.json")).sort();
   const entries = manifestPaths.map((manifestPath) => readManifestEntry(manifestPath));
+
+  rmSync(SITE_ROOT, { recursive: true, force: true });
+  mkdirSync(SITE_ROOT, { recursive: true });
 
   for (const entry of entries) {
     await buildDocumentPage(entry);
