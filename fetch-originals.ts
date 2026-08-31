@@ -7,12 +7,12 @@
  * Usage: tsx tools/fetch-originals.ts
  */
 import { createHash } from "node:crypto";
-import { glob } from "glob";
 import { fetchOriginal } from "./cache.js";
 import { readManifestEntry } from "./manifest-io.js";
+import { globManifestPaths } from "./paths.js";
 
 async function main() {
-  const manifestPaths = await glob("manifest/**/*.json");
+  const manifestPaths = await globManifestPaths();
 
   if (manifestPaths.length === 0) {
     console.log("No manifest files found yet — nothing to fetch.");
@@ -21,7 +21,7 @@ async function main() {
 
   let hasErrors = false;
 
-  for (const manifestPath of manifestPaths.sort()) {
+  for (const manifestPath of manifestPaths) {
     const entry = readManifestEntry(manifestPath);
     try {
       const content = await fetchOriginal(entry.source_repo, entry.source_commit, entry.original_path);

@@ -8,14 +8,14 @@
  */
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
-import { glob } from "glob";
 import { fetchOriginal } from "./cache.js";
 import { readManifestEntry } from "./manifest-io.js";
+import { globManifestPaths, PROJECT_ROOT } from "./paths.js";
 import { documentToBlockHtml, pageWrapper, renderDocumentBody, renderIndexItem } from "./render.js";
 import { parseBlocks } from "./split-blocks.js";
 import type { ManifestEntry } from "./types.js";
 
-const SITE_ROOT = "site";
+const SITE_ROOT = join(PROJECT_ROOT, "site");
 
 function outputPathFor(entry: ManifestEntry): string {
   // Use the raw path, not `hrefForDoc`'s URL-encoded form: a browser decodes
@@ -50,7 +50,7 @@ function buildIndexPage(entries: ManifestEntry[]): void {
 }
 
 async function main(): Promise<void> {
-  const manifestPaths = (await glob("manifest/**/*.json")).sort();
+  const manifestPaths = await globManifestPaths();
   const entries = manifestPaths.map((manifestPath) => readManifestEntry(manifestPath));
 
   rmSync(SITE_ROOT, { recursive: true, force: true });

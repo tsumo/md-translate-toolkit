@@ -10,9 +10,9 @@ import { existsSync, readFileSync, watch } from "node:fs";
 import type { ServerResponse } from "node:http";
 import { createServer } from "node:http";
 import { parseArgs } from "node:util";
-import { glob } from "glob";
 import { fetchOriginal } from "./cache.js";
 import { readManifestEntry } from "./manifest-io.js";
+import { globManifestPaths } from "./paths.js";
 import { documentToBlockHtml, pageWrapper, renderDocumentBody, renderIndexItem } from "./render.js";
 import { parseBlocks } from "./split-blocks.js";
 import type { ManifestEntry } from "./types.js";
@@ -71,11 +71,8 @@ async function renderDocumentPage(entry: ManifestEntry): Promise<string> {
 }
 
 async function renderIndexPage(): Promise<string> {
-  const manifestPaths = await glob("manifest/**/*.json");
-  const items = manifestPaths
-    .sort()
-    .map((manifestPath) => renderIndexItem(readManifestEntry(manifestPath)))
-    .join("");
+  const manifestPaths = await globManifestPaths();
+  const items = manifestPaths.map((manifestPath) => renderIndexItem(readManifestEntry(manifestPath))).join("");
   return pageWrapper("Translations", `<h1>Claimed documents</h1><ul class="index">${items}</ul>`, LIVE_RELOAD_SCRIPT);
 }
 

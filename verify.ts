@@ -10,9 +10,10 @@
  */
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
-import { glob } from "glob";
+import { relative } from "node:path";
 import { fetchOriginal } from "./cache.js";
 import { readManifestEntry } from "./manifest-io.js";
+import { globManifestPaths, PROJECT_ROOT } from "./paths.js";
 import { isUntranslated, parseBlocks, splitBlocks } from "./split-blocks.js";
 import type { ManifestEntry } from "./types.js";
 
@@ -64,7 +65,7 @@ async function verifyEntry(entry: ManifestEntry): Promise<string[]> {
 
 async function main() {
   const path = process.argv[2];
-  const manifestPaths = path ? [`manifest/${path}.json`] : await glob("manifest/**/*.json");
+  const manifestPaths = path ? [`manifest/${path}.json`] : await globManifestPaths();
 
   if (manifestPaths.length === 0) {
     console.log("No manifest files found yet — nothing to verify.");
@@ -72,14 +73,15 @@ async function main() {
   }
 
   let hasErrors = false;
-  for (const manifestPath of manifestPaths.sort()) {
+  for (const manifestPath of manifestPaths) {
+    const displayPath = relative(PROJECT_ROOT, manifestPath);
     const entry = readManifestEntry(manifestPath);
     const errors = await verifyEntry(entry);
     if (errors.length === 0) {
-      console.log(`ok    ${manifestPath}`);
+      console.log(`ok    ${displayPath}`);
     } else {
       hasErrors = true;
-      console.error(`FAIL  ${manifestPath}`);
+      console.error(`FAIL  ${displayPath}`);
       for (const err of errors) console.error(`      ${err}`);
     }
   }

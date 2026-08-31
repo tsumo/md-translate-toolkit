@@ -4,20 +4,21 @@
  * checked in, so there's one source of truth for the shape.
  */
 import { readFileSync } from "node:fs";
+import { join, relative } from "node:path";
 import { Ajv } from "ajv";
-import { glob } from "glob";
 import { createGenerator } from "ts-json-schema-generator";
+import { globManifestPaths, PROJECT_ROOT } from "./paths.js";
 
 const schema = createGenerator({
-  path: "tools/types.ts",
-  tsconfig: "tsconfig.json",
+  path: join(PROJECT_ROOT, "tools/types.ts"),
+  tsconfig: join(PROJECT_ROOT, "tsconfig.json"),
   type: "ManifestEntry",
 }).createSchema("ManifestEntry");
 
 const ajv = new Ajv({ allErrors: true });
 const validate = ajv.compile(schema);
 
-const files = await glob("manifest/**/*.json");
+const files = await globManifestPaths();
 
 if (files.length === 0) {
   console.log("No manifest files found yet — nothing to validate.");
@@ -26,13 +27,14 @@ if (files.length === 0) {
 
 let hasErrors = false;
 
-for (const file of files.sort()) {
+for (const file of files) {
+  const displayPath = relative(PROJECT_ROOT, file);
   const data = JSON.parse(readFileSync(file, "utf-8"));
   if (validate(data)) {
-    console.log(`ok    ${file}`);
+    console.log(`ok    ${displayPath}`);
   } else {
     hasErrors = true;
-    console.error(`FAIL  ${file}`);
+    console.error(`FAIL  ${displayPath}`);
     for (const err of validate.errors ?? []) {
       console.error(`      ${err.instancePath || "/"} ${err.message}`);
     }
