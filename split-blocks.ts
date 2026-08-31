@@ -132,9 +132,12 @@ export function isUntranslated(node: RootContent): boolean {
   return text.startsWith(PLACEHOLDER_MARKER);
 }
 
-/** Content-derived progress: how many blocks are untranslated vs. total. */
+/**
+ * Content-derived progress: how many blocks are untranslated vs. total.
+ * Excludes a block kind with no text.
+ */
 export function translationProgress(markdown: string): { translated: number; total: number } {
-  const nodes = parseBlocks(markdown);
+  const nodes = parseBlocks(markdown).filter((node) => node.type !== "thematicBreak");
   const translated = nodes.filter((node) => !isUntranslated(node)).length;
   return { translated, total: nodes.length };
 }

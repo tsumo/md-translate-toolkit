@@ -19,7 +19,8 @@ import remarkRehype from "remark-rehype";
 import { unified } from "unified";
 import { fetchOriginal } from "./cache.js";
 import { readManifestEntry } from "./manifest-io.js";
-import { parseBlocks } from "./split-blocks.js";
+import { parseBlocks, translationProgress } from "./split-blocks.js";
+import { deriveFileStatus } from "./status.js";
 import type { ManifestEntry } from "./types.js";
 
 const { values } = parseArgs({ args: process.argv.slice(2), options: { port: { type: "string" } } });
@@ -78,6 +79,15 @@ const PAGE_STYLE = `
   .columns > * { min-width: 0; overflow-wrap: break-word; padding: 0.4rem 0; border-bottom: 1px solid #eee; }
   .columns > :nth-child(4n+1), .columns > :nth-child(4n+2) { background: #fafafa; }
   h1, h2 { color: #222; }
+  ul.index > li { margin-bottom: 0.6rem; }
+  .badge { display: inline-block; padding: 0.1rem 0.5rem; border-radius: 1rem; font-size: 0.8rem; color: #fff; }
+  .status-not-started { background: #999; }
+  .status-in-progress { background: #3b82f6; }
+  .status-complete { background: #0d9488; }
+  .status-verified { background: #16a34a; }
+  .status-needs-attention { background: #dc2626; }
+  .progress { color: #666; font-size: 0.85rem; }
+  ul.flagged { margin: 0.2rem 0 0 1rem; color: #dc2626; font-size: 0.85rem; }
 `;
 
 async function renderDocumentPage(entry: ManifestEntry): Promise<string> {
@@ -97,17 +107,34 @@ async function renderDocumentPage(entry: ManifestEntry): Promise<string> {
   return pageWrapper(entry.original_path, body);
 }
 
+function renderIndexItem(entry: ManifestEntry): string {
+  const progress = translationProgress(readFileSync(entry.translation_path, "utf-8"));
+  const status = deriveFileStatus(entry.blocks, progress);
+  const href = `/doc/${encodeURIComponent(entry.original_path)}`;
+
+  const flagged = entry.blocks.filter((block) => block.status === "needs-attention");
+  const flaggedList = flagged.length
+    ? `<ul class="flagged">${flagged
+        .map((block) => `<li>block ${block.index}: ${escapeHtml(block.status_comment ?? "")}</li>`)
+        .join("")}</ul>`
+    : "";
+
+  return `<li>
+    <a href="${href}">${escapeHtml(entry.original_path)}</a>
+    <span class="badge status-${status}">${status}</span>
+    <span class="progress">${progress.translated}/${progress.total} blocks</span>
+    ${flagged.length ? `<span class="badge status-needs-attention">${flagged.length} flagged</span>` : ""}
+    ${flaggedList}
+  </li>`;
+}
+
 async function renderIndexPage(): Promise<string> {
   const manifestPaths = await glob("manifest/**/*.json");
   const items = manifestPaths
     .sort()
-    .map((manifestPath) => {
-      const entry = readManifestEntry(manifestPath);
-      const href = `/doc/${encodeURIComponent(entry.original_path)}`;
-      return `<li><a href="${href}">${escapeHtml(entry.original_path)}</a></li>`;
-    })
+    .map((manifestPath) => renderIndexItem(readManifestEntry(manifestPath)))
     .join("");
-  return pageWrapper("Translations", `<h1>Claimed documents</h1><ul>${items}</ul>`);
+  return pageWrapper("Translations", `<h1>Claimed documents</h1><ul class="index">${items}</ul>`);
 }
 
 const server = createServer(async (req, res) => {
