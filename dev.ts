@@ -6,7 +6,8 @@
  *
  * Usage: tsx tools/dev.ts [--port <number>]
  */
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync, watch } from "node:fs";
+import type { ServerResponse } from "node:http";
 import { createServer } from "node:http";
 import { parseArgs } from "node:util";
 import { glob } from "glob";
@@ -43,6 +44,34 @@ function escapeHtml(text: string): string {
   return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
+// Open live-reload connections. A file change writes to every one of these.
+const liveReloadClients = new Set<ServerResponse>();
+
+function broadcastReload(): void {
+  for (const client of liveReloadClients) client.write("data: reload\n\n");
+}
+
+/** This watches a directory. On any change, it calls `onChange` at most once per 200ms. */
+function watchDirectory(dir: string, onChange: () => void): void {
+  if (!existsSync(dir)) return;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  watch(dir, { recursive: true }, () => {
+    clearTimeout(timer);
+    timer = setTimeout(onChange, 200);
+  });
+}
+
+const LIVE_RELOAD_SCRIPT = `
+  const events = new EventSource("/events");
+  events.onmessage = () => location.reload();
+`;
+
+function pageWrapper(title: string, bodyHtml: string): string {
+  return `<!doctype html>
+<html><head><meta charset="utf-8"><title>${escapeHtml(title)}</title><style>${PAGE_STYLE}</style></head>
+<body>${bodyHtml}<script>${LIVE_RELOAD_SCRIPT}</script></body></html>`;
+}
+
 const PAGE_STYLE = `
   body { font-family: system-ui, sans-serif; margin: 0; padding: 1rem 2rem; }
   .columns { display: grid; grid-template-columns: 1fr 1fr; gap: 0 1.5rem; }
@@ -64,12 +93,8 @@ async function renderDocumentPage(entry: ManifestEntry): Promise<string> {
     rows.push(`<div>${originalHtml[i] ?? ""}</div><div>${translationHtml[i] ?? ""}</div>`);
   }
 
-  return `<!doctype html>
-<html><head><meta charset="utf-8"><title>${escapeHtml(entry.original_path)}</title><style>${PAGE_STYLE}</style></head>
-<body>
-<p><a href="/">&larr; all documents</a></p>
-<div class="columns">${rows.join("")}</div>
-</body></html>`;
+  const body = `<p><a href="/">&larr; all documents</a></p><div class="columns">${rows.join("")}</div>`;
+  return pageWrapper(entry.original_path, body);
 }
 
 async function renderIndexPage(): Promise<string> {
@@ -82,14 +107,22 @@ async function renderIndexPage(): Promise<string> {
       return `<li><a href="${href}">${escapeHtml(entry.original_path)}</a></li>`;
     })
     .join("");
-  return `<!doctype html>
-<html><head><meta charset="utf-8"><title>Translations</title><style>${PAGE_STYLE}</style></head>
-<body><h1>Claimed documents</h1><ul>${items}</ul></body></html>`;
+  return pageWrapper("Translations", `<h1>Claimed documents</h1><ul>${items}</ul>`);
 }
 
 const server = createServer(async (req, res) => {
   try {
     const url = new URL(req.url ?? "/", `http://localhost:${PORT}`);
+    if (url.pathname === "/events") {
+      res.writeHead(200, {
+        "content-type": "text/event-stream",
+        "cache-control": "no-cache",
+        connection: "keep-alive",
+      });
+      liveReloadClients.add(res);
+      req.on("close", () => liveReloadClients.delete(res));
+      return;
+    }
     if (url.pathname === "/") {
       res.writeHead(200, { "content-type": "text/html; charset=utf-8" });
       res.end(await renderIndexPage());
@@ -110,6 +143,9 @@ const server = createServer(async (req, res) => {
     res.end(String(err));
   }
 });
+
+watchDirectory("translations", broadcastReload);
+watchDirectory(".cache/originals", broadcastReload);
 
 server.listen(PORT, () => {
   console.log(`Dev server running at http://localhost:${PORT}`);
