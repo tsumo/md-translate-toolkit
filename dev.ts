@@ -10,7 +10,9 @@ import { readFileSync } from "node:fs";
 import { createServer } from "node:http";
 import { parseArgs } from "node:util";
 import { glob } from "glob";
-import type { Root, RootContent } from "mdast";
+import type { Root as HastRoot } from "hast";
+import type { Root } from "mdast";
+import rehypeSlug from "rehype-slug";
 import rehypeStringify from "rehype-stringify";
 import remarkRehype from "remark-rehype";
 import { unified } from "unified";
@@ -22,13 +24,19 @@ import type { ManifestEntry } from "./types.js";
 const { values } = parseArgs({ args: process.argv.slice(2), options: { port: { type: "string" } } });
 const PORT = Number(values.port ?? 4000);
 
-const toHtml = unified()
-  .use(remarkRehype, { allowDangerousHtml: true })
-  .use(rehypeStringify, { allowDangerousHtml: true });
+const toHast = unified().use(remarkRehype, { allowDangerousHtml: true }).use(rehypeSlug);
+const stringifyHast = unified().use(rehypeStringify, { allowDangerousHtml: true });
 
-function blockToHtml(node: RootContent): string {
-  const root: Root = { type: "root", children: [node] };
-  return toHtml.stringify(toHtml.runSync(root));
+/**
+ * This converts a whole document to HTML, one block at a time. Heading
+ * IDs need document-wide state for correct dedup. So this function
+ * converts the whole tree once. Then it splits the result back into
+ * per-block HTML, for the two-column zip.
+ */
+function documentToBlockHtml(markdown: string): string[] {
+  const mdastRoot: Root = { type: "root", children: parseBlocks(markdown) };
+  const hastRoot = toHast.runSync(mdastRoot) as HastRoot;
+  return hastRoot.children.map((child) => stringifyHast.stringify({ type: "root", children: [child] }));
 }
 
 function escapeHtml(text: string): string {
@@ -47,15 +55,13 @@ async function renderDocumentPage(entry: ManifestEntry): Promise<string> {
   const original = await fetchOriginal(entry.source_repo, entry.source_commit, entry.original_path);
   const translation = readFileSync(entry.translation_path, "utf-8");
 
-  const originalBlocks = parseBlocks(original);
-  const translationBlocks = parseBlocks(translation);
-  const rowCount = Math.max(originalBlocks.length, translationBlocks.length);
+  const originalHtml = documentToBlockHtml(original);
+  const translationHtml = documentToBlockHtml(translation);
+  const rowCount = Math.max(originalHtml.length, translationHtml.length);
 
   const rows: string[] = [];
   for (let i = 0; i < rowCount; i++) {
-    const left = originalBlocks[i] ? blockToHtml(originalBlocks[i]) : "";
-    const right = translationBlocks[i] ? blockToHtml(translationBlocks[i]) : "";
-    rows.push(`<div>${left}</div><div>${right}</div>`);
+    rows.push(`<div>${originalHtml[i] ?? ""}</div><div>${translationHtml[i] ?? ""}</div>`);
   }
 
   return `<!doctype html>
