@@ -41,6 +41,9 @@ function escapeHtml(text: string): string {
 const PAGE_STYLE = `
   body { font-family: system-ui, sans-serif; margin: 0; padding: 1rem 2rem; }
   .columns { display: grid; grid-template-columns: 1fr 1fr; gap: 0 1.5rem; }
+  @media (max-width: 768px) {
+    .columns { grid-template-columns: 1fr; }
+  }
   .columns > * { min-width: 0; overflow-wrap: break-word; padding: 0.4rem 0; border-bottom: 1px solid #eee; }
   .columns > :nth-child(4n+1), .columns > :nth-child(4n+2) { background: #fafafa; }
   .columns > .untranslated { background: #fff7e6; }
