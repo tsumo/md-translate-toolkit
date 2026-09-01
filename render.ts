@@ -57,6 +57,7 @@ const PAGE_STYLE = `
   .status-needs-attention { background: #dc2626; }
   .progress { color: #666; font-size: 0.85rem; }
   ul.flagged { margin: 0.2rem 0 0 1rem; color: #dc2626; font-size: 0.85rem; }
+  footer { margin-top: 2rem; padding-top: 1rem; border-top: 1px solid #eee; color: #888; font-size: 0.8rem; }
 `;
 
 /** The full page shell around `bodyHtml`. `extraBodyHtml` is appended after it, e.g. a live-reload script. */
@@ -64,6 +65,29 @@ export function pageWrapper(title: string, bodyHtml: string, extraBodyHtml = "")
   return `<!doctype html>
 <html><head><meta charset="utf-8"><title>${escapeHtml(title)}</title><style>${PAGE_STYLE}</style></head>
 <body>${bodyHtml}${extraBodyHtml}</body></html>`;
+}
+
+const ORIGINAL_REPO_URL = "https://github.com/OriginalMadman/Ars-Magica-Open-License";
+const CC_BY_SA_URL = "https://creativecommons.org/licenses/by-sa/4.0/";
+
+/** A link to `path` as it exists in `repo` at `commit`, viewable on GitHub's web UI. */
+function githubBlobUrl(repo: string, commit: string, path: string): string {
+  const encodedPath = path.split("/").map(encodeURIComponent).join("/");
+  return `https://github.com/${repo}/blob/${commit}/${encodedPath}`;
+}
+
+/**
+ * Attribution chrome for the generated site, satisfying CC BY-SA 4.0 since
+ * a translated file itself carries none (DECISIONS.md, ADR-016). `entry`
+ * adds a link to that document's exact pinned commit; omit it for a page
+ * with no single document behind it, like the index.
+ */
+function renderFooter(entry?: ManifestEntry): string {
+  const commitLink = entry
+    ? ` (<a href="${githubBlobUrl(entry.source_repo, entry.source_commit, entry.original_path)}">view original at this commit</a>)`
+    : "";
+  return `<footer><p>Translated from <a href="${ORIGINAL_REPO_URL}">Ars Magica Open License</a>${commitLink} —
+    a modified (translated) derivative work, licensed under <a href="${CC_BY_SA_URL}">CC BY-SA 4.0</a>.</p></footer>`;
 }
 
 /**
@@ -99,13 +123,14 @@ export async function renderDocumentPage(
   const originalHtml = await getOriginalHtml(entry);
   const translationHtml = documentToBlockHtml(translationNodes);
 
-  const body = renderDocumentBody(backHref, originalHtml, translationHtml, translationNodes);
+  const body = renderDocumentBody(backHref, originalHtml, translationHtml, translationNodes) + renderFooter(entry);
   return pageWrapper(entry.original_path, body, extraBodyHtml);
 }
 
 export function renderIndexPage(entries: ManifestEntry[], extraBodyHtml = ""): string {
   const items = entries.map((entry) => renderIndexItem(entry)).join("");
-  return pageWrapper("Translations", `<h1>Claimed documents</h1><ul class="index">${items}</ul>`, extraBodyHtml);
+  const body = `<h1>Claimed documents</h1><ul class="index">${items}</ul>${renderFooter()}`;
+  return pageWrapper("Translations", body, extraBodyHtml);
 }
 
 /** One `<li>` entry for the index page: link, status badge, progress, and any flagged blocks. */
