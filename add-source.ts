@@ -11,25 +11,13 @@ import { createHash } from "node:crypto";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
 import { parseArgs } from "node:util";
-import { fetchOriginal } from "./cache.js";
+import { fetchOriginal, resolveCommit } from "./cache.js";
 import { writeManifestEntry } from "./manifest-io.js";
 import { manifestPathFor } from "./paths.js";
 import { fingerprintBlock, parseBlocks, placeholderFor, stringifyBlocks } from "./split-blocks.js";
 import type { BlockEntry, ManifestEntry } from "./types.js";
 
 const SOURCE_REPO = "OriginalMadman/Ars-Magica-Open-License";
-const DEFAULT_BRANCH = "main";
-
-async function resolveCommit(commitArg: string | undefined): Promise<string> {
-  if (commitArg) return commitArg;
-  const url = `https://api.github.com/repos/${SOURCE_REPO}/commits/${DEFAULT_BRANCH}`;
-  const res = await fetch(url);
-  if (!res.ok) {
-    throw new Error(`Failed to resolve HEAD commit (${DEFAULT_BRANCH}): ${res.status} ${res.statusText}`);
-  }
-  const data = (await res.json()) as { sha: string };
-  return data.sha;
-}
 
 async function main() {
   const { positionals, values } = parseArgs({
@@ -44,7 +32,7 @@ async function main() {
     process.exit(1);
   }
 
-  const commit = await resolveCommit(values.commit);
+  const commit = await resolveCommit(SOURCE_REPO, values.commit);
   const content = await fetchOriginal(SOURCE_REPO, commit, path);
   const sha256 = createHash("sha256").update(content).digest("hex");
 

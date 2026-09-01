@@ -37,6 +37,21 @@ async function fetchWithRetry(url: string, description: string): Promise<Respons
 }
 
 /**
+ * Resolves `commitArg` to a commit hash, or the current HEAD of `branch`
+ * in `repo` if `commitArg` is not given.
+ */
+export async function resolveCommit(repo: string, commitArg: string | undefined, branch = "main"): Promise<string> {
+  if (commitArg) return commitArg;
+  const url = `https://api.github.com/repos/${repo}/commits/${branch}`;
+  const res = await fetch(url);
+  if (!res.ok) {
+    throw new Error(`Failed to resolve HEAD commit (${branch}): ${res.status} ${res.statusText}`);
+  }
+  const data = (await res.json()) as { sha: string };
+  return data.sha;
+}
+
+/**
  * Returns `path` as it exists in `repo` at `commit`, reading from the
  * local cache when present and fetching (then caching) otherwise.
  */
