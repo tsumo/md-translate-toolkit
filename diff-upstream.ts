@@ -90,3 +90,34 @@ export async function diffAgainstUpstream(
   const diff = diffBlocks(entry.blocks, newBlocks);
   return { commit, newBlocks, diff };
 }
+
+const MAX_LISTED = 10;
+
+function truncatedList(indices: number[]): string {
+  return indices.length <= MAX_LISTED
+    ? indices.join(", ")
+    : `${indices.slice(0, MAX_LISTED).join(", ")}, … (${indices.length} total)`;
+}
+
+/**
+ * A plain-language summary of `diff`: one header line, then one line each
+ * for changed/added/removed blocks, if any.
+ */
+export function formatDiffReport(entry: ManifestEntry, commit: string, diff: DiffEntry[]): string {
+  const header = `${entry.original_path}: ${entry.source_commit.slice(0, 7)} → ${commit.slice(0, 7)}`;
+  if (commit === entry.source_commit) return `${header} (up to date)`;
+
+  const changed = diff.filter((e) => e.kind === "changed").map((e) => e.newIndex);
+  const added = diff.filter((e) => e.kind === "added").map((e) => e.newIndex);
+  const removed = removedOldIndices(diff, entry.blocks.length);
+
+  if (changed.length === 0 && added.length === 0 && removed.length === 0) {
+    return `${header} (no block-level changes)`;
+  }
+
+  const lines = [header];
+  if (changed.length) lines.push(`  ${changed.length} block(s) changed: ${truncatedList(changed)}`);
+  if (added.length) lines.push(`  ${added.length} block(s) added: ${truncatedList(added)}`);
+  if (removed.length) lines.push(`  ${removed.length} block(s) removed: ${truncatedList(removed)}`);
+  return lines.join("\n");
+}
