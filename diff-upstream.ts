@@ -12,8 +12,9 @@
  * single-file case.
  */
 import { diffArrays } from "diff";
+import type { RootContent } from "mdast";
 import { fetchOriginal, resolveCommit } from "./cache.js";
-import { type ContentBlock, splitBlocks } from "./split-blocks.js";
+import { type ContentBlock, fingerprintBlock, parseBlocks } from "./split-blocks.js";
 import type { ManifestEntry } from "./types.js";
 
 export type DiffEntry =
@@ -83,12 +84,17 @@ export function removedOldIndices(entries: DiffEntry[], oldBlockCount: number): 
 export async function diffAgainstUpstream(
   entry: ManifestEntry,
   commitArg: string | undefined,
-): Promise<{ commit: string; newBlocks: ContentBlock[]; diff: DiffEntry[] }> {
+): Promise<{ commit: string; content: string; newNodes: RootContent[]; diff: DiffEntry[] }> {
   const commit = await resolveCommit(entry.source_repo, commitArg);
   const content = await fetchOriginal(entry.source_repo, commit, entry.original_path);
-  const newBlocks = splitBlocks(content);
+  const newNodes = parseBlocks(content);
+  const newBlocks: ContentBlock[] = newNodes.map((node, index) => ({
+    index,
+    kind: node.type,
+    fingerprint: fingerprintBlock(node),
+  }));
   const diff = diffBlocks(entry.blocks, newBlocks);
-  return { commit, newBlocks, diff };
+  return { commit, content, newNodes, diff };
 }
 
 const MAX_LISTED = 10;
