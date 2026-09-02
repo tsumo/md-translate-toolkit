@@ -99,7 +99,7 @@ export async function diffAgainstUpstream(
 
 const MAX_LISTED = 10;
 
-function truncatedList(indices: number[]): string {
+export function truncatedList(indices: number[]): string {
   return indices.length <= MAX_LISTED
     ? indices.join(", ")
     : `${indices.slice(0, MAX_LISTED).join(", ")}, … (${indices.length} total)`;

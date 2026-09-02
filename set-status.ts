@@ -14,6 +14,7 @@
  */
 import { readFileSync } from "node:fs";
 import { parseArgs } from "node:util";
+import { truncatedList } from "./diff-upstream.js";
 import { readManifestEntry, writeManifestEntry } from "./manifest-io.js";
 import { manifestPathFor } from "./paths.js";
 import { parseBlocks, translationProgress } from "./split-blocks.js";
@@ -57,12 +58,9 @@ for (const index of targetIndices) {
 const translationNodes = parseBlocks(readFileSync(entry.translation_path, "utf-8"));
 const stillPlaceholder = targetIndices.filter((index) => isInvalidCompletion(status, translationNodes[index]));
 if (stillPlaceholder.length > 0) {
-  const MAX_LISTED = 10;
-  const list =
-    stillPlaceholder.length <= MAX_LISTED
-      ? stillPlaceholder.join(", ")
-      : `${stillPlaceholder.slice(0, MAX_LISTED).join(", ")}, … (${stillPlaceholder.length} total)`;
-  console.error(`Cannot set "${status}": block(s) ${list} still hold a placeholder in ${entry.translation_path}.`);
+  console.error(
+    `Cannot set "${status}": block(s) ${truncatedList(stillPlaceholder)} still hold a placeholder in ${entry.translation_path}.`,
+  );
   process.exit(1);
 }
 
