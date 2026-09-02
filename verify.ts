@@ -1,19 +1,20 @@
 /**
  * Verifies manifest entries against their pinned original and translation
  * file: sha256/fingerprint integrity, translation block-kind alignment,
- * and the complete/verified completeness gate. Hard failure on any
- * mismatch, no auto-fix (ADR-014, ADR-015).
+ * and the complete/verified completeness gate. Also cross-checks the
+ * manifest/ and translations/ trees against each other. Hard failure on
+ * any mismatch, no auto-fix (ADR-014, ADR-015).
  *
  * Usage: tsx tools/verify.ts [<path>]
  *   <path>: verify just this manifest entry (original_path). Omit to
  *   verify every entry under manifest/.
  */
 import { createHash } from "node:crypto";
-import { readFileSync } from "node:fs";
-import { relative } from "node:path";
+import { existsSync, readFileSync } from "node:fs";
+import { join, relative } from "node:path";
 import { fetchOriginal } from "./cache.js";
 import { readManifestEntry } from "./manifest-io.js";
-import { globManifestPaths, manifestPathFor, PROJECT_ROOT } from "./paths.js";
+import { globManifestPaths, globTranslationPaths, manifestPathFor, PROJECT_ROOT } from "./paths.js";
 import { parseBlocks, splitBlocks } from "./split-blocks.js";
 import { isInvalidCompletion } from "./status.js";
 import type { ManifestEntry } from "./types.js";
@@ -42,6 +43,11 @@ async function verifyEntry(entry: ManifestEntry): Promise<string[]> {
     }
   }
 
+  if (!existsSync(entry.translation_path)) {
+    errors.push(`translation_path "${entry.translation_path}" does not exist`);
+    return errors;
+  }
+
   const translationNodes = parseBlocks(readFileSync(entry.translation_path, "utf-8"));
   if (translationNodes.length !== entry.blocks.length) {
     errors.push(
@@ -64,6 +70,12 @@ async function verifyEntry(entry: ManifestEntry): Promise<string[]> {
   return errors;
 }
 
+async function findOrphanedTranslations(entries: ManifestEntry[]): Promise<string[]> {
+  const claimedPaths = new Set(entries.map((entry) => join(PROJECT_ROOT, entry.translation_path)));
+  const translationFiles = await globTranslationPaths();
+  return translationFiles.filter((file) => !claimedPaths.has(file)).map((file) => relative(PROJECT_ROOT, file));
+}
+
 async function main() {
   const path = process.argv[2];
   const manifestPaths = path ? [manifestPathFor(path)] : await globManifestPaths();
@@ -74,9 +86,11 @@ async function main() {
   }
 
   let hasErrors = false;
+  const entries: ManifestEntry[] = [];
   for (const manifestPath of manifestPaths) {
     const displayPath = relative(PROJECT_ROOT, manifestPath);
     const entry = readManifestEntry(manifestPath);
+    entries.push(entry);
     const errors = await verifyEntry(entry);
     if (errors.length === 0) {
       console.log(`ok    ${displayPath}`);
@@ -84,6 +98,17 @@ async function main() {
       hasErrors = true;
       console.error(`FAIL  ${displayPath}`);
       for (const err of errors) console.error(`      ${err}`);
+    }
+  }
+
+  // A single path loads only one manifest entry. The claimed-paths set
+  // then holds only that one path. Every other real, claimed file would
+  // show as an orphan. This check needs every entry loaded to work
+  // correctly.
+  if (!path) {
+    for (const orphan of await findOrphanedTranslations(entries)) {
+      hasErrors = true;
+      console.error(`FAIL  ${orphan}: no manifest entry claims this translation file`);
     }
   }
 

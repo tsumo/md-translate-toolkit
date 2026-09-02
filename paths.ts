@@ -18,6 +18,12 @@ export async function globManifestPaths(): Promise<string[]> {
   return relativePaths.sort().map((relativePath) => join(PROJECT_ROOT, relativePath));
 }
 
+/** Absolute paths to every translation file, sorted for a stable iteration order. */
+export async function globTranslationPaths(): Promise<string[]> {
+  const relativePaths = await glob("translations/**/*.md", { cwd: PROJECT_ROOT });
+  return relativePaths.sort().map((relativePath) => join(PROJECT_ROOT, relativePath));
+}
+
 /**
  * A document's manifest entry path, relative to the project root, e.g.
  * `manifest/reviewed/Foo.md.json`. `originalPath` is whatever the caller
