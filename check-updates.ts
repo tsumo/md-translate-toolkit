@@ -6,6 +6,7 @@
  *
  * Usage: tsx tools/check-updates.ts [<path>]
  */
+import { NotFoundError } from "./cache.js";
 import { diffAgainstUpstream, formatDiffReport } from "./diff-upstream.js";
 import { readManifestEntry } from "./manifest-io.js";
 import { globManifestPaths, manifestPathFor } from "./paths.js";
@@ -19,11 +20,22 @@ async function main() {
     return;
   }
 
+  let hasNotFound = false;
   for (const manifestPath of manifestPaths) {
     const entry = readManifestEntry(manifestPath);
-    const { commit, diff } = await diffAgainstUpstream(entry, undefined);
-    console.log(formatDiffReport(entry, commit, diff));
+    try {
+      const { commit, diff } = await diffAgainstUpstream(entry, undefined);
+      console.log(formatDiffReport(entry, commit, diff));
+    } catch (err) {
+      if (!(err instanceof NotFoundError)) throw err;
+      hasNotFound = true;
+      console.error(
+        `${entry.original_path}: not found at upstream HEAD — possibly renamed, deleted, or split. Resolve manually.`,
+      );
+    }
   }
+
+  process.exit(hasNotFound ? 1 : 0);
 }
 
 main().catch((err) => {

@@ -9,6 +9,7 @@ import { createHash } from "node:crypto";
 import { readFileSync, writeFileSync } from "node:fs";
 import { parseArgs } from "node:util";
 import { applyResync } from "./apply-diff.js";
+import { NotFoundError } from "./cache.js";
 import { diffAgainstUpstream, formatDiffReport } from "./diff-upstream.js";
 import { readManifestEntry, writeManifestEntry } from "./manifest-io.js";
 import { manifestPathFor } from "./paths.js";
@@ -54,6 +55,10 @@ async function main(): Promise<void> {
 }
 
 main().catch((err) => {
-  console.error(err);
+  if (err instanceof NotFoundError) {
+    console.error(`${path}: not found at upstream HEAD — possibly renamed, deleted, or split. Resolve manually.`);
+  } else {
+    console.error(err);
+  }
   process.exit(1);
 });

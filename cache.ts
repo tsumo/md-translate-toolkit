@@ -10,6 +10,13 @@ const CACHE_ROOT = ".cache/originals";
 const MAX_ATTEMPTS = 4;
 const RETRY_STATUS = new Set([429, 500, 502, 503, 504]);
 
+export class NotFoundError extends Error {
+  constructor(description: string) {
+    super(`Not found: ${description}`);
+    this.name = "NotFoundError";
+  }
+}
+
 function cachePath(commit: string, path: string): string {
   return join(CACHE_ROOT, commit, path);
 }
@@ -25,6 +32,7 @@ async function fetchWithRetry(url: string, description: string): Promise<Respons
       (err: unknown) => ({ err }),
     );
     if ("res" in outcome && outcome.res.ok) return outcome.res;
+    if ("res" in outcome && outcome.res.status === 404) throw new NotFoundError(description);
 
     const retryable = "err" in outcome || RETRY_STATUS.has(outcome.res.status);
     const reason = "err" in outcome ? `${outcome.err}` : `${outcome.res.status} ${outcome.res.statusText}`;
