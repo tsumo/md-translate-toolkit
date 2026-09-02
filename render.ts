@@ -110,7 +110,7 @@ export function renderDocumentBody(
     const rightClass = node && isUntranslated(node) ? ' class="untranslated"' : "";
     rows.push(`<div>${originalHtml[i] ?? ""}</div><div${rightClass}>${translationHtml[i] ?? ""}</div>`);
   }
-  return `<p><a href="${backHref}">&larr; all documents</a></p><div class="columns">${rows.join("")}</div>`;
+  return `<p><a href="${escapeHtml(backHref)}">&larr; all documents</a></p><div class="columns">${rows.join("")}</div>`;
 }
 
 export async function renderDocumentPage(
@@ -128,14 +128,15 @@ export async function renderDocumentPage(
 }
 
 export function renderIndexPage(entries: ManifestEntry[], extraBodyHtml = ""): string {
-  const items = entries.map((entry) => renderIndexItem(entry)).join("");
+  const items = entries
+    .map((entry) => renderIndexItem(entry, translationProgress(readFileSync(entry.translation_path, "utf-8"))))
+    .join("");
   const body = `<h1>Claimed documents</h1><ul class="index">${items}</ul>${renderFooter()}`;
   return pageWrapper("Translations", body, extraBodyHtml);
 }
 
 /** One `<li>` entry for the index page: link, status badge, progress, and any flagged blocks. */
-export function renderIndexItem(entry: ManifestEntry): string {
-  const progress = translationProgress(readFileSync(entry.translation_path, "utf-8"));
+export function renderIndexItem(entry: ManifestEntry, progress: { translated: number; total: number }): string {
   const status = deriveFileStatus(entry.blocks, progress);
   const href = hrefForDoc(entry.original_path);
 
@@ -147,7 +148,7 @@ export function renderIndexItem(entry: ManifestEntry): string {
     : "";
 
   return `<li>
-    <a href="${href}">${escapeHtml(entry.original_path)}</a>
+    <a href="${escapeHtml(href)}">${escapeHtml(entry.original_path)}</a>
     <span class="badge status-${status}">${status}</span>
     <span class="progress">${progress.translated}/${progress.total} blocks</span>
     ${flagged.length ? `<span class="badge status-needs-attention">${flagged.length} flagged</span>` : ""}
