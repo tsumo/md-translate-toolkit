@@ -5,6 +5,7 @@
  */
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
+import { encodePathSegments } from "./paths.js";
 
 const CACHE_ROOT = ".cache/originals";
 const MAX_ATTEMPTS = 4;
@@ -71,8 +72,7 @@ export async function fetchOriginal(repo: string, commit: string, path: string):
   }
 
   console.log(`fetching   ${commit.slice(0, 7)} ${path}`);
-  const encodedPath = path.split("/").map(encodeURIComponent).join("/");
-  const url = `https://raw.githubusercontent.com/${repo}/${commit}/${encodedPath}`;
+  const url = `https://raw.githubusercontent.com/${repo}/${commit}/${encodePathSegments(path)}`;
   const res = await fetchWithRetry(url, `"${path}" at ${commit}`);
   const content = await res.text();
 

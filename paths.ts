@@ -43,3 +43,12 @@ export function sitePathFor(originalPath: string): string {
 export function hrefForDoc(originalPath: string): string {
   return encodeURI(sitePathFor(originalPath));
 }
+
+/**
+ * Encodes each segment of `path` separately, so a literal `/` stays a
+ * path separator instead of also being escaped. For a path used in a
+ * GitHub URL, where per-segment encoding is stricter than `encodeURI`.
+ */
+export function encodePathSegments(path: string): string {
+  return path.split("/").map(encodeURIComponent).join("/");
+}

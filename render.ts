@@ -10,7 +10,7 @@ import rehypeSlug from "rehype-slug";
 import rehypeStringify from "rehype-stringify";
 import remarkRehype from "remark-rehype";
 import { unified } from "unified";
-import { hrefForDoc } from "./paths.js";
+import { encodePathSegments, hrefForDoc } from "./paths.js";
 import { isUntranslated, parseBlocks, translationProgress } from "./split-blocks.js";
 import { deriveFileStatus } from "./status.js";
 import type { ManifestEntry } from "./types.js";
@@ -72,8 +72,7 @@ const CC_BY_SA_URL = "https://creativecommons.org/licenses/by-sa/4.0/";
 
 /** A link to `path` as it exists in `repo` at `commit`, viewable on GitHub's web UI. */
 function githubBlobUrl(repo: string, commit: string, path: string): string {
-  const encodedPath = path.split("/").map(encodeURIComponent).join("/");
-  return `https://github.com/${repo}/blob/${commit}/${encodedPath}`;
+  return `https://github.com/${repo}/blob/${commit}/${encodePathSegments(path)}`;
 }
 
 /**
