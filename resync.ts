@@ -3,7 +3,8 @@
  * positionally aligned with the new block list, and updates the manifest
  * to match.
  *
- * Usage: tsx tools/resync.ts <path> [--commit <sha>]
+ * Usage: tsx tools/resync.ts [<path>] [--commit <sha>]
+ *   In a terminal, omitting <path> opens a document picker instead.
  */
 import { createHash } from "node:crypto";
 import { readFileSync, writeFileSync } from "node:fs";
@@ -13,6 +14,7 @@ import { NotFoundError } from "./cache.js";
 import { diffAgainstUpstream, formatDiffReport } from "./diff-upstream.js";
 import { readManifestEntry, writeManifestEntry } from "./manifest-io.js";
 import { manifestPathFor } from "./paths.js";
+import { canPrompt, pickClaimedPath } from "./pick-path.js";
 import { parseBlocks, stringifyBlocks } from "./split-blocks.js";
 
 const { positionals, values } = parseArgs({
@@ -21,13 +23,13 @@ const { positionals, values } = parseArgs({
   options: { commit: { type: "string" } },
 });
 
-const [path] = positionals;
-if (!path) {
-  console.error("Usage: tsx tools/resync.ts <path> [--commit <sha>]");
-  process.exit(1);
-}
-
 async function main(): Promise<void> {
+  const path = positionals[0] ?? (canPrompt() ? await pickClaimedPath({ includeAll: false }) : undefined);
+  if (!path) {
+    console.error("Usage: tsx tools/resync.ts <path> [--commit <sha>]");
+    process.exit(1);
+  }
+
   const manifestPath = manifestPathFor(path);
   const entry = readManifestEntry(manifestPath);
   const { commit, content, newNodes, diff } = await diffAgainstUpstream(entry, values.commit);
@@ -56,7 +58,7 @@ async function main(): Promise<void> {
 
 main().catch((err) => {
   if (err instanceof NotFoundError) {
-    console.error(`${path}: not found at upstream HEAD — possibly renamed, deleted, or split. Resolve manually.`);
+    console.error(`${err.message} — possibly renamed, deleted, or split upstream. Resolve manually.`);
   } else {
     console.error(err);
   }

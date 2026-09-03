@@ -5,8 +5,9 @@
  * placeholder, since those two states are strong claims other tooling and
  * readers will trust.
  *
- * Usage: tsx tools/set-status.ts <path> <status> [--block <index>] [--comment "..."]
- *   <path> is the original_path, e.g. "reviewed/Some File.md"
+ * Usage: tsx tools/set-status.ts [<path>] <status> [--block <index>] [--comment "..."]
+ *   <path> is the original_path, e.g. "reviewed/Some File.md". In a
+ *   terminal, omitting <path> opens a document picker instead.
  *   No --block: applies to every block (the common case — a reviewer
  *   finishing a whole file marks it verified in one shot).
  *   --block <index>: applies to just that one block (flagging a single
@@ -17,8 +18,11 @@ import { parseArgs } from "node:util";
 import { truncatedList } from "./diff-upstream.js";
 import { readManifestEntry, writeManifestEntry } from "./manifest-io.js";
 import { manifestPathFor } from "./paths.js";
+import { canPrompt, pickClaimedPath } from "./pick-path.js";
 import { parseBlocks, translationProgress } from "./split-blocks.js";
 import { deriveFileStatus, isInvalidCompletion, isValidBlockStatus, VALID_BLOCK_STATUSES } from "./status.js";
+
+const USAGE = 'Usage: tsx tools/set-status.ts [<path>] <status> [--block <index>] [--comment "..."]';
 
 const { positionals, values } = parseArgs({
   args: process.argv.slice(2),
@@ -26,9 +30,10 @@ const { positionals, values } = parseArgs({
   options: { block: { type: "string" }, comment: { type: "string" } },
 });
 
-const [path, status] = positionals;
-if (!path || !status) {
-  console.error('Usage: tsx tools/set-status.ts <path> <status> [--block <index>] [--comment "..."]');
+// One positional given means it's <status>, with <path> left for the picker below.
+const [path, status] = positionals.length === 1 ? [undefined, positionals[0]] : positionals;
+if (!status) {
+  console.error(USAGE);
   console.error(`<status> must be one of: ${VALID_BLOCK_STATUSES.join(" | ")}`);
   process.exit(1);
 }
@@ -43,7 +48,13 @@ if (status === "needs-attention" && !values.comment) {
   process.exit(1);
 }
 
-const manifestPath = manifestPathFor(path);
+const resolvedPath = path ?? (canPrompt() ? await pickClaimedPath({ includeAll: false }) : undefined);
+if (!resolvedPath) {
+  console.error(USAGE);
+  process.exit(1);
+}
+
+const manifestPath = manifestPathFor(resolvedPath);
 const entry = readManifestEntry(manifestPath);
 
 const targetIndices = values.block !== undefined ? [Number(values.block)] : entry.blocks.map((b) => b.index);

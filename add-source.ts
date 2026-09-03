@@ -3,9 +3,11 @@
  * manifest entry, and generates a translation skeleton (every block
  * present, each marked untranslated with a text preview — ADR-007).
  *
- * Usage: tsx tools/add-source.ts <path> [--commit <sha>]
+ * Usage: tsx tools/add-source.ts [<path>] [--commit <sha>]
  *   <path> is relative to the upstream repo root, e.g.
- *   "reviewed/Ars Magica - Definitive Edition (Core Rules).md"
+ *   "reviewed/Ars Magica - Definitive Edition (Core Rules).md". In a
+ *   terminal, omitting <path> opens a picker over unclaimed upstream files
+ *   instead.
  */
 import { createHash } from "node:crypto";
 import { mkdirSync, writeFileSync } from "node:fs";
@@ -14,6 +16,7 @@ import { parseArgs } from "node:util";
 import { fetchOriginal, resolveCommit } from "./cache.js";
 import { writeManifestEntry } from "./manifest-io.js";
 import { manifestPathFor } from "./paths.js";
+import { canPrompt, pickUpstreamPath } from "./pick-path.js";
 import { fingerprintBlock, parseBlocks, placeholderFor, stringifyBlocks } from "./split-blocks.js";
 import type { BlockEntry, ManifestEntry } from "./types.js";
 
@@ -26,13 +29,14 @@ async function main() {
     options: { commit: { type: "string" } },
   });
 
-  const [path] = positionals;
+  const commit = await resolveCommit(SOURCE_REPO, values.commit);
+
+  const path = positionals[0] ?? (canPrompt() ? await pickUpstreamPath(SOURCE_REPO, commit) : undefined);
   if (!path) {
     console.error("Usage: tsx tools/add-source.ts <path> [--commit <sha>]");
     process.exit(1);
   }
 
-  const commit = await resolveCommit(SOURCE_REPO, values.commit);
   const content = await fetchOriginal(SOURCE_REPO, commit, path);
   const sha256 = createHash("sha256").update(content).digest("hex");
 

@@ -34,6 +34,11 @@ export function manifestPathFor(originalPath: string): string {
   return `manifest/${originalPath}.json`;
 }
 
+/** Inverse of `manifestPathFor`. `manifestPath` is relative to the project root. */
+export function originalPathFromManifestPath(manifestPath: string): string {
+  return manifestPath.slice("manifest/".length, -".json".length);
+}
+
 /**
  * A document's page path, relative to the site root, e.g.
  * `doc/reviewed/Foo.md.html`. A real `.html` file, not a directory with an

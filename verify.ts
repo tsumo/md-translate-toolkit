@@ -7,7 +7,8 @@
  *
  * Usage: tsx tools/verify.ts [<path>]
  *   <path>: verify just this manifest entry (original_path). Omit to
- *   verify every entry under manifest/.
+ *   verify every entry under manifest/. In a terminal, omitting <path>
+ *   opens a document picker instead.
  */
 import { createHash } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
@@ -15,6 +16,7 @@ import { join, relative } from "node:path";
 import { fetchOriginal } from "./cache.js";
 import { readManifestEntry } from "./manifest-io.js";
 import { globManifestPaths, globTranslationPaths, manifestPathFor, PROJECT_ROOT } from "./paths.js";
+import { canPrompt, pickClaimedPath } from "./pick-path.js";
 import { parseBlocks, splitBlocks } from "./split-blocks.js";
 import { isInvalidCompletion } from "./status.js";
 import type { ManifestEntry } from "./types.js";
@@ -77,7 +79,7 @@ async function findOrphanedTranslations(entries: ManifestEntry[]): Promise<strin
 }
 
 async function main() {
-  const path = process.argv[2];
+  const path = process.argv[2] ?? (canPrompt() ? await pickClaimedPath({ includeAll: true }) : undefined);
   const manifestPaths = path ? [manifestPathFor(path)] : await globManifestPaths();
 
   if (manifestPaths.length === 0) {

@@ -61,6 +61,21 @@ export async function resolveCommit(repo: string, commitArg: string | undefined,
 }
 
 /**
+ * Every Markdown file path in `repo` at `commit`, for a document picker.
+ * Not cached to disk: the picker should reflect the tree at the commit
+ * about to be pinned, and the list itself is cheap to fetch.
+ */
+export async function fetchRepoTree(repo: string, commit: string): Promise<string[]> {
+  const url = `https://api.github.com/repos/${repo}/git/trees/${commit}?recursive=1`;
+  const res = await fetchWithRetry(url, `repo tree for ${repo} at ${commit}`);
+  const data = (await res.json()) as { tree: { path: string; type: string }[]; truncated: boolean };
+  if (data.truncated) {
+    console.error(`Warning: ${repo}'s tree at ${commit} is too large to list in full. Some files may be missing.`);
+  }
+  return data.tree.filter((entry) => entry.type === "blob" && entry.path.endsWith(".md")).map((entry) => entry.path);
+}
+
+/**
  * Returns `path` as it exists in `repo` at `commit`, reading from the
  * local cache when present and fetching (then caching) otherwise.
  */
