@@ -1,8 +1,7 @@
 /**
- * Shared types for the manifest format. See TODO.md Phase 1 for the
- * schema this mirrors, and DECISIONS.md for the rationale behind each
- * field (ADR-001 commit pinning, ADR-006 linking mechanism, ADR-015
- * status, ADR-017 fingerprint algorithm).
+ * Types for the manifest format. See DECISIONS.md for the rationale
+ * behind each field (ADR-001 commit pinning, ADR-006 linking mechanism,
+ * ADR-015 status, ADR-017 fingerprint algorithm).
  */
 
 /** A block's human-set status (ADR-015). */

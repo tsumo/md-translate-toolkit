@@ -2,7 +2,7 @@
  * Parses a Markdown document into its top-level blocks, fingerprints them
  * (ADR-017), and generates neutral placeholder blocks for translation
  * skeletons (ADR-007). Used identically on originals and translations —
- * same splitter, no special-casing (see TODO.md Phase 2).
+ * same splitter, no special-casing.
  */
 import { createHash } from "node:crypto";
 import type { PhrasingContent, Root, RootContent } from "mdast";
