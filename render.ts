@@ -55,6 +55,7 @@ const PAGE_STYLE = `
   .status-complete { background: #0d9488; }
   .status-verified { background: #16a34a; }
   .status-needs-attention { background: #dc2626; }
+  .status-stale { background: #d97706; }
   .progress { color: #666; font-size: 0.85rem; }
   ul.flagged { margin: 0.2rem 0 0 1rem; color: #dc2626; font-size: 0.85rem; }
   footer { margin-top: 2rem; padding-top: 1rem; border-top: 1px solid #eee; color: #888; font-size: 0.8rem; }
@@ -126,16 +127,28 @@ export async function renderDocumentPage(
   return pageWrapper(entry.original_path, body, extraBodyHtml);
 }
 
-export function renderIndexPage(entries: ManifestEntry[], extraBodyHtml = ""): string {
+export function renderIndexPage(
+  entries: ManifestEntry[],
+  extraBodyHtml = "",
+  staleness?: Map<string, boolean>,
+): string {
   const items = entries
-    .map((entry) => renderIndexItem(entry, translationProgress(readFileSync(entry.translation_path, "utf-8"))))
+    .map((entry) => {
+      const progress = translationProgress(readFileSync(entry.translation_path, "utf-8"));
+      const stale = staleness?.get(entry.original_path) ?? false;
+      return renderIndexItem(entry, progress, stale);
+    })
     .join("");
   const body = `<h1>Claimed documents</h1><ul class="index">${items}</ul>${renderFooter()}`;
   return pageWrapper("Translations", body, extraBodyHtml);
 }
 
 /** One `<li>` entry for the index page: link, status badge, progress, and any flagged blocks. */
-export function renderIndexItem(entry: ManifestEntry, progress: { translated: number; total: number }): string {
+export function renderIndexItem(
+  entry: ManifestEntry,
+  progress: { translated: number; total: number },
+  stale = false,
+): string {
   const status = deriveFileStatus(entry.blocks, progress);
   const href = hrefForDoc(entry.original_path);
 
@@ -149,6 +162,7 @@ export function renderIndexItem(entry: ManifestEntry, progress: { translated: nu
   return `<li>
     <a href="${escapeHtml(href)}">${escapeHtml(entry.original_path)}</a>
     <span class="badge status-${status}">${status}</span>
+    ${stale ? '<span class="badge status-stale">upstream changed</span>' : ""}
     <span class="progress">${progress.translated}/${progress.total} blocks</span>
     ${flagged.length ? `<span class="badge status-needs-attention">${flagged.length} flagged</span>` : ""}
     ${flaggedList}

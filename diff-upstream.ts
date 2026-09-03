@@ -86,6 +86,10 @@ export async function diffAgainstUpstream(
   commitArg: string | undefined,
 ): Promise<{ commit: string; content: string; newNodes: RootContent[]; diff: DiffEntry[] }> {
   const commit = await resolveCommit(entry.source_repo, commitArg);
+  if (commit === entry.source_commit) {
+    return { commit, content: "", newNodes: [], diff: [] };
+  }
+
   const content = await fetchOriginal(entry.source_repo, commit, entry.original_path);
   const newNodes = parseBlocks(content);
   const newBlocks: ContentBlock[] = newNodes.map((node, index) => ({
@@ -95,6 +99,11 @@ export async function diffAgainstUpstream(
   }));
   const diff = diffBlocks(entry.blocks, newBlocks);
   return { commit, content, newNodes, diff };
+}
+
+/** True iff `diff` holds any real content change, not just a different commit with identical content. */
+export function hasChanges(diff: DiffEntry[], oldBlockCount: number): boolean {
+  return diff.some((e) => e.kind !== "unchanged") || removedOldIndices(diff, oldBlockCount).length > 0;
 }
 
 const MAX_LISTED = 10;
@@ -112,14 +121,11 @@ export function truncatedList(indices: number[]): string {
 export function formatDiffReport(entry: ManifestEntry, commit: string, diff: DiffEntry[]): string {
   const header = `${entry.original_path}: ${entry.source_commit.slice(0, 7)} → ${commit.slice(0, 7)}`;
   if (commit === entry.source_commit) return `${header} (up to date)`;
+  if (!hasChanges(diff, entry.blocks.length)) return `${header} (no block-level changes)`;
 
   const changed = diff.filter((e) => e.kind === "changed").map((e) => e.newIndex);
   const added = diff.filter((e) => e.kind === "added").map((e) => e.newIndex);
   const removed = removedOldIndices(diff, entry.blocks.length);
-
-  if (changed.length === 0 && added.length === 0 && removed.length === 0) {
-    return `${header} (no block-level changes)`;
-  }
 
   const lines = [header];
   if (changed.length) lines.push(`  ${changed.length} block(s) changed: ${truncatedList(changed)}`);

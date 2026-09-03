@@ -8,7 +8,8 @@
  */
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
-import { fetchOriginal } from "./cache.js";
+import { fetchOriginal, NotFoundError } from "./cache.js";
+import { diffAgainstUpstream, hasChanges } from "./diff-upstream.js";
 import { readManifestEntry } from "./manifest-io.js";
 import { globManifestPaths, PROJECT_ROOT, sitePathFor } from "./paths.js";
 import { documentToBlockHtml, renderDocumentPage, renderIndexPage } from "./render.js";
@@ -41,8 +42,23 @@ async function buildDocumentPage(entry: ManifestEntry): Promise<void> {
   writeFileSync(outPath, page);
 }
 
-function buildIndexPage(entries: ManifestEntry[]): void {
-  writeFileSync(join(SITE_ROOT, "index.html"), renderIndexPage(entries));
+async function computeStaleness(entries: ManifestEntry[]): Promise<Map<string, boolean>> {
+  const staleness = new Map<string, boolean>();
+  for (const entry of entries) {
+    try {
+      const { commit, diff } = await diffAgainstUpstream(entry, undefined);
+      staleness.set(entry.original_path, commit !== entry.source_commit && hasChanges(diff, entry.blocks.length));
+    } catch (err) {
+      if (!(err instanceof NotFoundError)) throw err;
+      console.error(`${entry.original_path}: not found at upstream HEAD — skipping staleness check.`);
+    }
+  }
+  return staleness;
+}
+
+async function buildIndexPage(entries: ManifestEntry[]): Promise<void> {
+  const staleness = await computeStaleness(entries);
+  writeFileSync(join(SITE_ROOT, "index.html"), renderIndexPage(entries, "", staleness));
 }
 
 async function main(): Promise<void> {
@@ -56,7 +72,7 @@ async function main(): Promise<void> {
     await buildDocumentPage(entry);
     console.log(`built  ${entry.original_path}`);
   }
-  buildIndexPage(entries);
+  await buildIndexPage(entries);
   console.log(`built  index (${entries.length} document${entries.length === 1 ? "" : "s"})`);
 }
 
