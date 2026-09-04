@@ -111,7 +111,9 @@ export function renderDocumentBody(
     const node = translationNodes[i];
     const rightClass = node && isUntranslated(node) ? ' class="untranslated"' : "";
     rows.push(
-      `<div><p class="block-index">${i}</p></div><div>${originalHtml[i] ?? ""}</div><div${rightClass}>${translationHtml[i] ?? ""}</div>`,
+      `<div><p class="block-index">${i}</p></div>`,
+      `<div>${originalHtml[i] ?? ""}</div>`,
+      `<div${rightClass}>${translationHtml[i] ?? ""}</div>`,
     );
   }
   return `<p><a href="${escapeHtml(backHref)}">&larr; all documents</a></p><div class="columns">${rows.join("")}</div>`;
