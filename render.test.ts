@@ -37,15 +37,15 @@ describe("documentToBlockHtml", () => {
 });
 
 describe("renderDocumentBody", () => {
-  it("zips original and translation HTML into ordered row pairs", () => {
+  it("zips original and translation HTML into ordered row triples, labeled with the block index", () => {
     const [n1] = parseBlocks("");
     const [n2] = parseBlocks("");
     const body = renderDocumentBody("/", ["<p>O1</p>", "<p>O2</p>"], ["<p>T1</p>", "<p>T2</p>"], [n1, n2]);
     assertHtmlEqual(
       body,
       '<p><a href="/">&larr; all documents</a></p><div class="columns">' +
-        "<div><p>O1</p></div><div><p>T1</p></div>" +
-        "<div><p>O2</p></div><div><p>T2</p></div>" +
+        '<div><p class="block-index">0</p></div><div><p>O1</p></div><div><p>T1</p></div>' +
+        '<div><p class="block-index">1</p></div><div><p>O2</p></div><div><p>T2</p></div>' +
         "</div>",
     );
   });
@@ -57,7 +57,7 @@ describe("renderDocumentBody", () => {
     assertHtmlEqual(
       body,
       '<p><a href="/">&larr; all documents</a></p><div class="columns">' +
-        '<div><p>O</p></div><div class="untranslated"><p>T</p></div>' +
+        '<div><p class="block-index">0</p></div><div><p>O</p></div><div class="untranslated"><p>T</p></div>' +
         "</div>",
     );
   });
@@ -68,8 +68,8 @@ describe("renderDocumentBody", () => {
     assertHtmlEqual(
       body,
       '<p><a href="/">&larr; all documents</a></p><div class="columns">' +
-        "<div><p>O1</p></div><div><p>T1</p></div>" +
-        "<div><p>O2</p></div><div></div>" +
+        '<div><p class="block-index">0</p></div><div><p>O1</p></div><div><p>T1</p></div>' +
+        '<div><p class="block-index">1</p></div><div><p>O2</p></div><div></div>' +
         "</div>",
     );
   });
