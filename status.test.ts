@@ -5,7 +5,7 @@ import { deriveFileStatus, isInvalidCompletion, isValidBlockStatus, VALID_BLOCK_
 import type { BlockEntry } from "./types.js";
 
 function entry(status: BlockEntry["status"]): BlockEntry {
-  return { index: 0, kind: "paragraph", fingerprint: "0000000000000000", status };
+  return { kind: "paragraph", fingerprint: "0000000000000000", status };
 }
 
 describe("isValidBlockStatus", () => {

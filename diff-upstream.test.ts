@@ -5,7 +5,7 @@ import type { ContentBlock } from "./split-blocks.js";
 
 /** A minimal ContentBlock fixture — diffBlocks only reads `fingerprint`. */
 function block(fingerprint: string): ContentBlock {
-  return { index: 0, kind: "paragraph", fingerprint };
+  return { kind: "paragraph", fingerprint };
 }
 
 function blocks(...fingerprints: string[]): ContentBlock[] {

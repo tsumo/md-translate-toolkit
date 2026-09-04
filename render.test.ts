@@ -100,8 +100,8 @@ describe("renderIndexItem", () => {
   it("renders the link, status badge, and progress for a fully verified document", () => {
     const doc = entry({
       blocks: [
-        { index: 0, kind: "paragraph", fingerprint: "1111111111111111", status: "verified" },
-        { index: 1, kind: "paragraph", fingerprint: "2222222222222222", status: "verified" },
+        { kind: "paragraph", fingerprint: "1111111111111111", status: "verified" },
+        { kind: "paragraph", fingerprint: "2222222222222222", status: "verified" },
       ],
     });
     assertHtmlEqual(
@@ -116,9 +116,8 @@ describe("renderIndexItem", () => {
     const doc = entry({
       original_path: "reviewed/Some & File.md",
       blocks: [
-        { index: 0, kind: "paragraph", fingerprint: "1111111111111111", status: "complete" },
+        { kind: "paragraph", fingerprint: "1111111111111111", status: "complete" },
         {
-          index: 1,
           kind: "paragraph",
           fingerprint: "2222222222222222",
           status: "needs-attention",

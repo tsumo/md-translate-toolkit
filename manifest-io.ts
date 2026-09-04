@@ -7,7 +7,6 @@ import type { BlockEntry, ManifestEntry } from "./types.js";
 
 function canonicalBlock(block: BlockEntry): BlockEntry {
   return {
-    index: block.index,
     kind: block.kind,
     fingerprint: block.fingerprint,
     status: block.status,

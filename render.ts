@@ -152,10 +152,12 @@ export function renderIndexItem(
   const status = deriveFileStatus(entry.blocks, progress);
   const href = hrefForDoc(entry.original_path);
 
-  const flagged = entry.blocks.filter((block) => block.status === "needs-attention");
+  const flagged = entry.blocks
+    .map((block, index) => ({ block, index }))
+    .filter(({ block }) => block.status === "needs-attention");
   const flaggedList = flagged.length
     ? `<ul class="flagged">${flagged
-        .map((block) => `<li>block ${block.index}: ${escapeHtml(block.status_comment ?? "")}</li>`)
+        .map(({ block, index }) => `<li>block ${index}: ${escapeHtml(block.status_comment ?? "")}</li>`)
         .join("")}</ul>`
     : "";
 

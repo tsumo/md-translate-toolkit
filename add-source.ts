@@ -41,8 +41,7 @@ async function main() {
   const sha256 = createHash("sha256").update(content).digest("hex");
 
   const nodes = parseBlocks(content);
-  const blocks: BlockEntry[] = nodes.map((node, index) => ({
-    index,
+  const blocks: BlockEntry[] = nodes.map((node) => ({
     kind: node.type,
     fingerprint: fingerprintBlock(node),
     status: "in-progress",

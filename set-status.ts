@@ -57,7 +57,7 @@ if (!resolvedPath) {
 const manifestPath = manifestPathFor(resolvedPath);
 const entry = readManifestEntry(manifestPath);
 
-const targetIndices = values.block !== undefined ? [Number(values.block)] : entry.blocks.map((b) => b.index);
+const targetIndices = values.block !== undefined ? [Number(values.block)] : entry.blocks.map((_, i) => i);
 
 for (const index of targetIndices) {
   if (!entry.blocks[index]) {

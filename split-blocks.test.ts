@@ -77,14 +77,13 @@ describe("fingerprintBlock", () => {
 });
 
 describe("splitBlocks", () => {
-  it("assigns sequential zero-based indices matching each block's kind and fingerprint", () => {
+  it("returns one entry per block, in order, matching its kind and fingerprint", () => {
     const markdown = "# Heading\n\nA paragraph.\n\n---";
     const blocks = splitBlocks(markdown);
     const nodes = parseBlocks(markdown);
 
     assert.equal(blocks.length, 3);
     blocks.forEach((block, i) => {
-      assert.equal(block.index, i);
       assert.equal(block.kind, nodes[i].type);
       assert.equal(block.fingerprint, fingerprintBlock(nodes[i]));
     });

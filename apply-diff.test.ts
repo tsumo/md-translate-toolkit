@@ -8,7 +8,7 @@ import type { BlockEntry } from "./types.js";
 const TODAY = "2026-09-02";
 
 function block(status: BlockEntry["status"], comment?: string): BlockEntry {
-  return { index: 0, kind: "paragraph", fingerprint: "0000000000000000", status, status_comment: comment };
+  return { kind: "paragraph", fingerprint: "0000000000000000", status, status_comment: comment };
 }
 
 describe("resolveStatus", () => {
@@ -74,10 +74,6 @@ describe("applyResync", () => {
     assert.equal(translationNodes[1], oldNode);
     assert.equal(blocks[1].status, "verified");
     assert.equal(blocks.length, 2);
-    assert.deepEqual(
-      blocks.map((b) => b.index),
-      [0, 1],
-    );
   });
 
   it("keeps a changed block's old translation content in place, only downgrading its status", () => {
@@ -117,7 +113,7 @@ describe("applyResync", () => {
     assert.equal(blocks.length, 1);
   });
 
-  it("assigns sequential indices matching the new node list's kind and fingerprint, regardless of diff shape", () => {
+  it("orders output blocks to match the new node list, regardless of diff shape", () => {
     const [a] = parseBlocks("# Heading");
     const [b] = parseBlocks("A paragraph.");
     const diff: DiffEntry[] = [
@@ -127,11 +123,8 @@ describe("applyResync", () => {
     const { blocks } = applyResync(diff, [], [], [a, b], TODAY);
 
     assert.deepEqual(
-      blocks.map((b) => [b.index, b.kind]),
-      [
-        [0, "heading"],
-        [1, "paragraph"],
-      ],
+      blocks.map((b) => b.kind),
+      ["heading", "paragraph"],
     );
   });
 });

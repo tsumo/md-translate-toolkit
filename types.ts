@@ -7,9 +7,11 @@
 /** A block's human-set status (ADR-015). */
 export type BlockStatus = "in-progress" | "complete" | "verified" | "needs-attention";
 
-/** A block's position and kind within a document, plus a content fingerprint. */
+/**
+ * A block's kind and content fingerprint. A block's position (ADR-006) is
+ * its index in `ManifestEntry.blocks`, not a field stored here.
+ */
 export interface BlockEntry {
-  index: number;
   /** Top-level Markdown AST node type (heading, paragraph, list, table, etc.). */
   kind: string;
   /** sha256 of the block's normalized re-serialization, truncated to 16 hex chars. */

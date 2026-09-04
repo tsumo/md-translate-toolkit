@@ -54,7 +54,6 @@ export function applyResync(
   const blocks: BlockEntry[] = newNodes.map((node, newIndex) => {
     const resolved = resolveStatus(diffByNewIndex.get(newIndex), oldBlocks, today);
     return {
-      index: newIndex,
       kind: node.type,
       fingerprint: fingerprintBlock(node),
       status: resolved.status,

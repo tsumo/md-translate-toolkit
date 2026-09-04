@@ -14,7 +14,7 @@ import { unified } from "unified";
 import type { BlockEntry } from "./types.js";
 
 /** Purely content-derived block data — no status, which is human-owned. */
-export type ContentBlock = Pick<BlockEntry, "index" | "kind" | "fingerprint">;
+export type ContentBlock = Pick<BlockEntry, "kind" | "fingerprint">;
 
 const parser = unified().use(remarkParse).use(remarkGfm);
 
@@ -39,8 +39,7 @@ export function fingerprintBlock(node: RootContent): string {
 
 /** Full block list + fingerprints for a document, in original order. */
 export function splitBlocks(markdown: string): ContentBlock[] {
-  return parseBlocks(markdown).map((node, index) => ({
-    index,
+  return parseBlocks(markdown).map((node) => ({
     kind: node.type,
     fingerprint: fingerprintBlock(node),
   }));
