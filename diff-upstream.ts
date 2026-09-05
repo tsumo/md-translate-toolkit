@@ -7,9 +7,9 @@
  * added. A leftover old block gets no entry — the caller finds it as an
  * index no entry points at (`removedOldIndices`).
  *
- * Shared by `check-updates` (read-only report) and `resync.ts` (applies
- * the diff). No CLI entry of its own: `check-updates <path>` covers the
- * single-file case.
+ * Shared by `check-updates.ts` (reports the diff, and applies it too when
+ * run with `--write`) and `build.ts` (the staleness check on the index
+ * page). No CLI entry of its own.
  */
 import { diffArrays } from "diff";
 import type { RootContent } from "mdast";
@@ -92,8 +92,7 @@ export async function diffAgainstUpstream(
 
   const content = await fetchOriginal(entry.source_repo, commit, entry.original_path);
   const newNodes = parseBlocks(content);
-  const newBlocks: ContentBlock[] = newNodes.map((node, index) => ({
-    index,
+  const newBlocks: ContentBlock[] = newNodes.map((node) => ({
     kind: node.type,
     fingerprint: fingerprintBlock(node),
   }));
