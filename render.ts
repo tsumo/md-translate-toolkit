@@ -11,7 +11,7 @@ import rehypeStringify from "rehype-stringify";
 import remarkRehype from "remark-rehype";
 import { unified } from "unified";
 import { encodePathSegments, hrefForDoc } from "./paths.js";
-import { isUntranslated, parseBlocks, translationProgress } from "./split-blocks.js";
+import { isUntranslated, translationProgress } from "./split-blocks.js";
 import { deriveFileStatus } from "./status.js";
 import type { ManifestEntry } from "./types.js";
 
@@ -119,16 +119,14 @@ export function renderDocumentBody(
   return `<p><a href="${escapeHtml(backHref)}">&larr; all documents</a></p><div class="columns">${rows.join("")}</div>`;
 }
 
-export async function renderDocumentPage(
+export function renderDocumentPage(
   entry: ManifestEntry,
-  getOriginalHtml: (entry: ManifestEntry) => Promise<string[]>,
+  originalHtml: string[],
+  translationNodes: RootContent[],
   backHref: string,
   extraBodyHtml = "",
-): Promise<string> {
-  const translationNodes = parseBlocks(readFileSync(entry.translation_path, "utf-8"));
-  const originalHtml = await getOriginalHtml(entry);
+): string {
   const translationHtml = documentToBlockHtml(translationNodes);
-
   const body = renderDocumentBody(backHref, originalHtml, translationHtml, translationNodes) + renderFooter(entry);
   return pageWrapper(entry.original_path, body, extraBodyHtml);
 }

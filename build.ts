@@ -2,19 +2,20 @@
  * Builds the static site into `/site/`: one page per claimed document, plus
  * an index page. Same rendering core as the local dev server. This is the
  * read-only public artifact published to GitHub Pages.
+ * Runs the same checks as verify.ts first. Any failure aborts before anything
+ * under /site/ is touched (ADR-014, ADR-015).
  *
- * Usage: tsx tools/build.ts — builds directly, with no checksum gate.
- * `npm run build` chains that gate first.
+ * Usage: tsx tools/build.ts
  */
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
-import { fetchOriginal, NotFoundError } from "./cache.js";
+import type { RootContent } from "mdast";
+import { NotFoundError } from "./cache.js";
 import { diffAgainstUpstream, hasChanges } from "./diff-upstream.js";
-import { readManifestEntry } from "./manifest-io.js";
 import { globManifestPaths, PROJECT_ROOT, sitePathFor } from "./paths.js";
 import { documentToBlockHtml, renderDocumentPage, renderIndexPage } from "./render.js";
-import { parseBlocks } from "./split-blocks.js";
 import type { ManifestEntry } from "./types.js";
+import { verifyAll } from "./verify-checks.js";
 
 const SITE_ROOT = join(PROJECT_ROOT, "site");
 
@@ -25,18 +26,14 @@ function outputPathFor(entry: ManifestEntry): string {
   return join(SITE_ROOT, sitePathFor(entry.original_path));
 }
 
-async function getOriginalHtml(entry: ManifestEntry): Promise<string[]> {
-  const original = await fetchOriginal(entry.source_repo, entry.source_commit, entry.original_path);
-  return documentToBlockHtml(parseBlocks(original));
-}
-
-async function buildDocumentPage(entry: ManifestEntry): Promise<void> {
+function buildDocumentPage(entry: ManifestEntry, originalNodes: RootContent[], translationNodes: RootContent[]): void {
   const outPath = outputPathFor(entry);
   // A document page can sit several directories deep (mirroring `original_path`), and the
   // site is served from an unknown base path (e.g. a GitHub Pages project subpath). So the
   // link back to the index is relative to this page's own file, not an absolute `/`.
   const backHref = relative(dirname(outPath), join(SITE_ROOT, "index.html"));
-  const page = await renderDocumentPage(entry, getOriginalHtml, backHref);
+  const originalHtml = documentToBlockHtml(originalNodes);
+  const page = renderDocumentPage(entry, originalHtml, translationNodes, backHref);
 
   mkdirSync(dirname(outPath), { recursive: true });
   writeFileSync(outPath, page);
@@ -63,17 +60,26 @@ async function buildIndexPage(entries: ManifestEntry[]): Promise<void> {
 
 async function main(): Promise<void> {
   const manifestPaths = await globManifestPaths();
-  const entries = manifestPaths.map((manifestPath) => readManifestEntry(manifestPath));
+  const { entries, results, hasErrors } = await verifyAll(manifestPaths, true);
+  if (hasErrors) process.exit(1);
 
   rmSync(SITE_ROOT, { recursive: true, force: true });
   mkdirSync(SITE_ROOT, { recursive: true });
 
-  for (const entry of entries) {
-    await buildDocumentPage(entry);
+  for (let i = 0; i < entries.length; i++) {
+    const entry = entries[i];
+    const { originalNodes, translationNodes } = results[i];
+    // hasErrors is false, so translationNodes are present
+    if (!translationNodes) throw new Error(`unreachable: ${entry.original_path} has no translationNodes`);
+
+    buildDocumentPage(entry, originalNodes, translationNodes);
     console.log(`built  ${entry.original_path}`);
   }
   await buildIndexPage(entries);
   console.log(`built  index (${entries.length} document${entries.length === 1 ? "" : "s"})`);
 }
 
-main();
+main().catch((err) => {
+  console.error(err);
+  process.exit(1);
+});

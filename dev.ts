@@ -6,7 +6,7 @@
  *
  * Usage: tsx tools/dev.ts [--port <number>]
  */
-import { existsSync, watch } from "node:fs";
+import { existsSync, readFileSync, watch } from "node:fs";
 import type { ServerResponse } from "node:http";
 import { createServer } from "node:http";
 import { parseArgs } from "node:util";
@@ -86,7 +86,9 @@ const server = createServer(async (req, res) => {
         .replace(/\.html$/, "");
       const manifestPath = manifestPathFor(originalPath);
       const entry = readManifestEntry(manifestPath);
-      const page = await renderDocumentPage(entry, renderOriginalHtml, "/", LIVE_RELOAD_SCRIPT);
+      const translationNodes = parseBlocks(readFileSync(entry.translation_path, "utf-8"));
+      const originalHtml = await renderOriginalHtml(entry);
+      const page = renderDocumentPage(entry, originalHtml, translationNodes, "/", LIVE_RELOAD_SCRIPT);
       res.writeHead(200, { "content-type": "text/html; charset=utf-8" });
       res.end(page);
       return;
