@@ -4,12 +4,12 @@
  * ("run starting script to download originals"), reused by the local dev
  * server and the CI build.
  *
- * Usage: tsx tools/fetch-originals.ts
+ * Usage: tsx tools/scripts/fetch-originals.ts
  */
 import { createHash } from "node:crypto";
-import { fetchOriginal } from "./cache.js";
-import { readManifestEntry } from "./manifest-io.js";
-import { globManifestPaths } from "./paths.js";
+import { fetchOriginal } from "../cache.js";
+import { readManifestEntry } from "../manifest-io.js";
+import { globManifestPaths } from "../paths.js";
 
 async function main() {
   const manifestPaths = await globManifestPaths();
@@ -41,4 +41,7 @@ async function main() {
   process.exit(hasErrors ? 1 : 0);
 }
 
-main();
+main().catch((err) => {
+  console.error(err);
+  process.exit(1);
+});

@@ -4,18 +4,18 @@
  * It zips the blocks by position. It renders an original and translation
  * two-column HTML page.
  *
- * Usage: tsx tools/dev.ts [--port <number>]
+ * Usage: tsx tools/scripts/dev.ts [--port <number>]
  */
 import { existsSync, readFileSync, watch } from "node:fs";
 import type { ServerResponse } from "node:http";
 import { createServer } from "node:http";
 import { parseArgs } from "node:util";
-import { fetchOriginal } from "./cache.js";
-import { readManifestEntry } from "./manifest-io.js";
-import { globManifestPaths, manifestPathFor } from "./paths.js";
-import { documentToBlockHtml, renderDocumentPage, renderIndexPage } from "./render.js";
-import { parseBlocks } from "./split-blocks.js";
-import type { ManifestEntry } from "./types.js";
+import { fetchOriginal } from "../cache.js";
+import { readManifestEntry } from "../manifest-io.js";
+import { globManifestPaths, manifestPathFor } from "../paths.js";
+import { documentToBlockHtml, renderDocumentPage, renderIndexPage } from "../render.js";
+import { parseBlocks } from "../split-blocks.js";
+import type { ManifestEntry } from "../types.js";
 
 const { values } = parseArgs({ args: process.argv.slice(2), options: { port: { type: "string" } } });
 const PORT = Number(values.port ?? 4000);

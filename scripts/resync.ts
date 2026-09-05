@@ -3,19 +3,19 @@
  * positionally aligned with the new block list, and updates the manifest
  * to match.
  *
- * Usage: tsx tools/resync.ts [<path>] [--commit <sha>]
+ * Usage: tsx tools/scripts/resync.ts [<path>] [--commit <sha>]
  *   In a terminal, omitting <path> opens a document picker instead.
  */
 import { createHash } from "node:crypto";
 import { readFileSync, writeFileSync } from "node:fs";
 import { parseArgs } from "node:util";
-import { applyResync } from "./apply-diff.js";
-import { NotFoundError } from "./cache.js";
-import { diffAgainstUpstream, formatDiffReport } from "./diff-upstream.js";
-import { readManifestEntry, writeManifestEntry } from "./manifest-io.js";
-import { manifestPathFor } from "./paths.js";
-import { canPrompt, pickClaimedPath } from "./pick-path.js";
-import { parseBlocks, stringifyBlocks } from "./split-blocks.js";
+import { applyResync } from "../apply-diff.js";
+import { NotFoundError } from "../cache.js";
+import { diffAgainstUpstream, formatDiffReport } from "../diff-upstream.js";
+import { readManifestEntry, writeManifestEntry } from "../manifest-io.js";
+import { manifestPathFor } from "../paths.js";
+import { canPrompt, pickClaimedPath } from "../pick-path.js";
+import { parseBlocks, stringifyBlocks } from "../split-blocks.js";
 
 const { positionals, values } = parseArgs({
   args: process.argv.slice(2),
@@ -26,7 +26,7 @@ const { positionals, values } = parseArgs({
 async function main(): Promise<void> {
   const path = positionals[0] ?? (canPrompt() ? await pickClaimedPath({ includeAll: false }) : undefined);
   if (!path) {
-    console.error("Usage: tsx tools/resync.ts <path> [--commit <sha>]");
+    console.error("Usage: tsx tools/scripts/resync.ts <path> [--commit <sha>]");
     process.exit(1);
   }
 

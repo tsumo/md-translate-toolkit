@@ -4,15 +4,15 @@
  * blocks. Nothing is written to disk — see `resync.ts` to actually apply
  * a diff.
  *
- * Usage: tsx tools/check-updates.ts [<path>]
+ * Usage: tsx tools/scripts/check-updates.ts [<path>]
  *   In a terminal, omitting <path> opens a document picker instead of
  *   checking every claimed document.
  */
-import { NotFoundError } from "./cache.js";
-import { diffAgainstUpstream, formatDiffReport } from "./diff-upstream.js";
-import { readManifestEntry } from "./manifest-io.js";
-import { globManifestPaths, manifestPathFor } from "./paths.js";
-import { canPrompt, pickClaimedPath } from "./pick-path.js";
+import { NotFoundError } from "../cache.js";
+import { diffAgainstUpstream, formatDiffReport } from "../diff-upstream.js";
+import { readManifestEntry } from "../manifest-io.js";
+import { globManifestPaths, manifestPathFor } from "../paths.js";
+import { canPrompt, pickClaimedPath } from "../pick-path.js";
 
 async function main() {
   const path = process.argv[2] ?? (canPrompt() ? await pickClaimedPath({ includeAll: true }) : undefined);

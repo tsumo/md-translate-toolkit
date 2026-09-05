@@ -3,7 +3,7 @@
  * manifest entry, and generates a translation skeleton (every block
  * present, each marked untranslated with a text preview — ADR-007).
  *
- * Usage: tsx tools/add-source.ts [<path>] [--commit <sha>]
+ * Usage: tsx tools/scripts/add-source.ts [<path>] [--commit <sha>]
  *   <path> is relative to the upstream repo root, e.g.
  *   "reviewed/Ars Magica - Definitive Edition (Core Rules).md". In a
  *   terminal, omitting <path> opens a picker over unclaimed upstream files
@@ -13,12 +13,12 @@ import { createHash } from "node:crypto";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
 import { parseArgs } from "node:util";
-import { fetchOriginal, resolveCommit } from "./cache.js";
-import { writeManifestEntry } from "./manifest-io.js";
-import { manifestPathFor } from "./paths.js";
-import { canPrompt, pickUpstreamPath } from "./pick-path.js";
-import { fingerprintBlock, parseBlocks, placeholderFor, stringifyBlocks } from "./split-blocks.js";
-import type { BlockEntry, ManifestEntry } from "./types.js";
+import { fetchOriginal, resolveCommit } from "../cache.js";
+import { writeManifestEntry } from "../manifest-io.js";
+import { manifestPathFor } from "../paths.js";
+import { canPrompt, pickUpstreamPath } from "../pick-path.js";
+import { fingerprintBlock, parseBlocks, placeholderFor, stringifyBlocks } from "../split-blocks.js";
+import type { BlockEntry, ManifestEntry } from "../types.js";
 
 const SOURCE_REPO = "OriginalMadman/Ars-Magica-Open-License";
 
@@ -33,7 +33,7 @@ async function main() {
 
   const path = positionals[0] ?? (canPrompt() ? await pickUpstreamPath(SOURCE_REPO, commit) : undefined);
   if (!path) {
-    console.error("Usage: tsx tools/add-source.ts <path> [--commit <sha>]");
+    console.error("Usage: tsx tools/scripts/add-source.ts <path> [--commit <sha>]");
     process.exit(1);
   }
 

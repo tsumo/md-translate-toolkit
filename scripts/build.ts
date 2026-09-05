@@ -5,17 +5,17 @@
  * Runs the same checks as verify.ts first. Any failure aborts before anything
  * under /site/ is touched (ADR-014, ADR-015).
  *
- * Usage: tsx tools/build.ts
+ * Usage: tsx tools/scripts/build.ts
  */
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
 import type { RootContent } from "mdast";
-import { NotFoundError } from "./cache.js";
-import { diffAgainstUpstream, hasChanges } from "./diff-upstream.js";
-import { globManifestPaths, PROJECT_ROOT, sitePathFor } from "./paths.js";
-import { documentToBlockHtml, renderDocumentPage, renderIndexPage } from "./render.js";
-import type { ManifestEntry } from "./types.js";
-import { verifyAll } from "./verify-checks.js";
+import { NotFoundError } from "../cache.js";
+import { diffAgainstUpstream, hasChanges } from "../diff-upstream.js";
+import { globManifestPaths, PROJECT_ROOT, sitePathFor } from "../paths.js";
+import { documentToBlockHtml, renderDocumentPage, renderIndexPage } from "../render.js";
+import type { ManifestEntry } from "../types.js";
+import { verifyAll } from "../verify-checks.js";
 
 const SITE_ROOT = join(PROJECT_ROOT, "site");
 
