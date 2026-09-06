@@ -1,23 +1,19 @@
 /**
  * Diffs a claimed document (or every one) against upstream: fetches the
  * current HEAD (or --commit's SHA) and diffs it against the manifest's
- * current blocks. Read-only by default. --write applies the diff for
+ * current blocks. Read-only by default. --apply applies the diff for
  * real: rewrites the translation file to stay positionally aligned with
- * the new block list, and updates the manifest to match (ADR-012, resync
+ * the new block list, and updates the manifest to match (ADR-012, this
  * is destructive by design).
  *
- * `npm run check-updates` runs this read-only. `npm run resync` runs it
- * with --write.
- *
- * Usage: tsx tools/scripts/check-updates.ts [<path>] [--commit <sha>] [--write]
- *   No <path>: every claimed document. In a terminal, omitting <path>
- *   opens a document picker instead — offering "All documents" only when
- *   neither --write nor --commit is given, since both need one document.
+ * Usage: tsx tools/scripts/pull-updates.ts [<path>] [--commit <sha>] [--apply]
+ *   No <path>: every claimed document, for both the report and --apply.
+ *     In a terminal, omitting <path> opens a document picker instead,
+ *     offering "All documents" unless --commit is also given.
  *   --commit <sha>: diff against this commit instead of upstream HEAD.
  *     Requires <path> — one commit doesn't mean anything applied across
  *     many different files.
- *   --write: apply the diff instead of only reporting it. Requires
- *     <path> — one command can't yet resync every document at once.
+ *   --apply: apply the diff instead of only reporting it.
  */
 import { createHash } from "node:crypto";
 import { readFileSync, writeFileSync } from "node:fs";
@@ -33,27 +29,21 @@ import { parseBlocks, stringifyBlocks } from "../split-blocks.js";
 const { positionals, values } = parseArgs({
   args: process.argv.slice(2),
   allowPositionals: true,
-  options: { commit: { type: "string" }, write: { type: "boolean" } },
+  options: { commit: { type: "string" }, apply: { type: "boolean" } },
 });
 
 async function resolvePath(): Promise<string | undefined> {
   if (positionals[0]) return positionals[0];
   if (!canPrompt()) return undefined;
-  // --write and --commit both need one real document, never "all documents".
-  const needsOneDoc = values.write || values.commit !== undefined;
-  return needsOneDoc ? pickClaimedPath({ includeAll: false }) : pickClaimedPath({ includeAll: true });
+  // --commit needs one real document, never "all documents" — --apply doesn't.
+  return values.commit !== undefined ? pickClaimedPath({ includeAll: false }) : pickClaimedPath({ includeAll: true });
 }
 
 async function main(): Promise<void> {
   const path = await resolvePath();
 
-  if (values.write && !path) {
-    console.error("Usage: tsx tools/scripts/check-updates.ts <path> --write [--commit <sha>]");
-    console.error("--write requires <path> — one command can't resync every document at once.");
-    process.exit(1);
-  }
   if (values.commit !== undefined && !path) {
-    console.error("Usage: tsx tools/scripts/check-updates.ts <path> --commit <sha> [--write]");
+    console.error("Usage: tsx tools/scripts/pull-updates.ts <path> --commit <sha> [--apply]");
     console.error("--commit requires <path> — one commit doesn't apply across many different files.");
     process.exit(1);
   }
@@ -72,7 +62,7 @@ async function main(): Promise<void> {
       const { commit, content, newNodes, diff } = await diffAgainstUpstream(entry, values.commit);
       console.log(formatDiffReport(entry, commit, diff));
 
-      if (values.write && commit !== entry.source_commit) {
+      if (values.apply && commit !== entry.source_commit) {
         const oldTranslationNodes = parseBlocks(readFileSync(entry.translation_path, "utf-8"));
         const today = new Date().toISOString().slice(0, 10);
         const { translationNodes, blocks } = applyResync(diff, entry.blocks, oldTranslationNodes, newNodes, today);

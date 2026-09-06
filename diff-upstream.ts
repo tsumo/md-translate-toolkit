@@ -7,8 +7,8 @@
  * added. A leftover old block gets no entry — the caller finds it as an
  * index no entry points at (`removedOldIndices`).
  *
- * Shared by `check-updates.ts` (reports the diff, and applies it too when
- * run with `--write`) and `build.ts` (the staleness check on the index
+ * Shared by `pull-updates.ts` (reports the diff, and applies it too when
+ * run with `--apply`) and `build.ts` (the staleness check on the index
  * page). No CLI entry of its own.
  */
 import { diffArrays } from "diff";

@@ -1,9 +1,10 @@
 /**
- * Builds the static site into `/site/`: one page per claimed document, plus
- * an index page. Same rendering core as the local dev server. This is the
- * read-only public artifact published to GitHub Pages.
- * Runs the same checks as verify.ts first. Any failure aborts before anything
- * under /site/ is touched (ADR-014, ADR-015).
+ * The one command that takes a fresh clone to a working static site:
+ * fetches every pinned original into the local cache, validates every
+ * manifest file's shape, then checks each one's checksum, block
+ * alignment, and translation completeness (ADR-014, ADR-015). Any
+ * failure aborts before anything under `/site/` is touched. Same
+ * rendering core as the local dev server.
  *
  * Usage: tsx tools/scripts/build.ts
  */
@@ -12,6 +13,7 @@ import { dirname, join, relative } from "node:path";
 import type { RootContent } from "mdast";
 import { NotFoundError } from "../cache.js";
 import { diffAgainstUpstream, hasChanges } from "../diff-upstream.js";
+import { validateManifestShape } from "../manifest-schema.js";
 import { globManifestPaths, PROJECT_ROOT, sitePathFor } from "../paths.js";
 import { documentToBlockHtml, renderDocumentPage, renderIndexPage } from "../render.js";
 import type { ManifestEntry } from "../types.js";
@@ -58,8 +60,29 @@ async function buildIndexPage(entries: ManifestEntry[]): Promise<void> {
   writeFileSync(join(SITE_ROOT, "index.html"), renderIndexPage(entries, "", staleness));
 }
 
+/** Validates every manifest file's shape, printing an `ok`/`FAIL` line for each. Returns whether any failed. */
+function checkManifestShapes(manifestPaths: string[]): boolean {
+  let hasErrors = false;
+  for (const { path, errors } of validateManifestShape(manifestPaths)) {
+    const displayPath = relative(PROJECT_ROOT, path);
+    if (errors.length === 0) {
+      console.log(`ok    ${displayPath}`);
+    } else {
+      hasErrors = true;
+      console.error(`FAIL  ${displayPath}`);
+      for (const err of errors) console.error(`      ${err}`);
+    }
+  }
+  return hasErrors;
+}
+
 async function main(): Promise<void> {
   const manifestPaths = await globManifestPaths();
+
+  // Shape first: a malformed manifest file would otherwise crash the content
+  // checks below with a confusing error instead of Ajv's clear one.
+  if (checkManifestShapes(manifestPaths)) process.exit(1);
+
   const { entries, results, hasErrors } = await verifyAll(manifestPaths, true);
   if (hasErrors) process.exit(1);
 

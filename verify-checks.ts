@@ -3,7 +3,7 @@
  * file: sha256/fingerprint integrity, translation block-kind alignment,
  * and the complete/verified completeness gate. Also cross-checks the
  * manifest/ and translations/ trees against each other (ADR-014, ADR-015).
- * No CLI of its own — `verify.ts` and `build.ts` both call `verifyAll`.
+ * No CLI of its own — `build.ts` calls `verifyAll`.
  */
 
 import { createHash } from "node:crypto";
