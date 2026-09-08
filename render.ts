@@ -79,7 +79,7 @@ function githubBlobUrl(repo: string, commit: string, path: string): string {
 
 /**
  * Attribution chrome for the generated site, satisfying CC BY-SA 4.0 since
- * a translated file itself carries none (DECISIONS.md, ADR-016). `entry`
+ * a translated file itself carries none (DECISIONS.md, ADR-014). `entry`
  * adds a link to that document's exact pinned commit; omit it for a page
  * with no single document behind it, like the index.
  */

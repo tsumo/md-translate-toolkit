@@ -1,6 +1,6 @@
 /**
  * Compares a manifest entry's current blocks against a newer upstream
- * commit's blocks, by fingerprint (ADR-017). A block whose fingerprint
+ * commit's blocks, by fingerprint (ADR-015). A block whose fingerprint
  * appears in both lists, in order, is unchanged, even at a shifted index.
  * Between two such matches, any leftover old and new blocks pair up
  * positionally as changed; leftover new blocks past that pairing are

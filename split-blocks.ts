@@ -1,6 +1,6 @@
 /**
  * Parses a Markdown document into its top-level blocks, fingerprints them
- * (ADR-017), and generates neutral placeholder blocks for translation
+ * (ADR-015), and generates neutral placeholder blocks for translation
  * skeletons (ADR-007). Used identically on originals and translations —
  * same splitter, no special-casing.
  */
@@ -24,13 +24,13 @@ export function parseBlocks(markdown: string): RootContent[] {
   return tree.children;
 }
 
-// Fixed, normalized stringify options for fingerprinting (ADR-017): canonicalizes
+// Fixed, normalized stringify options for fingerprinting (ADR-015): canonicalizes
 // formatting so purely cosmetic upstream edits don't change the fingerprint.
 const normalizedStringify = unified()
   .use(remarkStringify, { bullet: "-", emphasis: "_", strong: "*", fence: "`", rule: "-" })
   .use(remarkGfm);
 
-/** sha256 of the block's normalized re-serialization, truncated to 16 hex chars (ADR-017). */
+/** sha256 of the block's normalized re-serialization, truncated to 16 hex chars (ADR-015). */
 export function fingerprintBlock(node: RootContent): string {
   const root: Root = { type: "root", children: [node] };
   const text = normalizedStringify.stringify(root);

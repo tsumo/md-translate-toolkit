@@ -2,7 +2,7 @@
  * The one command that takes a fresh clone to a working static site:
  * fetches every pinned original into the local cache, validates every
  * manifest file's shape, then checks each one's checksum, block
- * alignment, and translation completeness (ADR-014, ADR-015). Any
+ * alignment, and translation completeness (ADR-012, ADR-013). Any
  * failure aborts before anything under `/site/` is touched. Same
  * rendering core as the local dev server.
  *

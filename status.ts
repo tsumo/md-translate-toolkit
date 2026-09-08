@@ -1,4 +1,4 @@
-/** Derives a document's file-level status from its blocks. Never stored (ADR-015). */
+/** Derives a document's file-level status from its blocks. Never stored (ADR-013). */
 import type { RootContent } from "mdast";
 import { isUntranslated } from "./split-blocks.js";
 import type { BlockEntry, BlockStatus, TranslationStatus } from "./types.js";

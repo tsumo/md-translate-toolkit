@@ -43,7 +43,7 @@ const LIVE_RELOAD_SCRIPT = `<script>
 </script>`;
 
 // Rendered HTML per block for a pinned original, keyed by commit + path.
-// An original is immutable for its pinned commit (ADR-018), so a cache
+// An original is immutable for its pinned commit (ADR-016), so a cache
 // entry never goes stale on its own — only a `.cache/originals` change
 // (a re-fetch after a manifest edit) can invalidate it.
 const originalHtmlCache = new Map<string, string[]>();
