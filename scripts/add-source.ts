@@ -3,7 +3,7 @@
  * manifest entry, and generates a translation skeleton (every block
  * present, each marked untranslated with a text preview — ADR-007).
  *
- * Usage: tsx tools/scripts/add-source.ts [<path>] [--commit <sha>] [--config <path>]
+ * Usage: md-translate add-source [<path>] [--commit <sha>] [--config <path>]
  *   <path> is relative to the upstream repo root, e.g.
  *   "reviewed/Ars Magica - Definitive Edition (Core Rules).md". In a
  *   terminal, omitting <path> opens a picker over unclaimed upstream files
@@ -21,9 +21,9 @@ import { canPrompt, pickUpstreamPath } from "../pick-path.js";
 import { fingerprintBlock, parseBlocks, placeholderFor, stringifyBlocks } from "../split-blocks.js";
 import type { BlockEntry, ManifestEntry } from "../types.js";
 
-async function main() {
+export async function runAddSource(argv: string[]): Promise<void> {
   const { positionals, values } = parseArgs({
-    args: process.argv.slice(2),
+    args: argv,
     allowPositionals: true,
     options: { commit: { type: "string" }, config: { type: "string" } },
   });
@@ -41,7 +41,7 @@ async function main() {
     positionals[0] ??
     (canPrompt() ? await pickUpstreamPath(sourceRepo, commit, config.root, config.manifestDir) : undefined);
   if (!path) {
-    console.error("Usage: tsx tools/scripts/add-source.ts <path> [--commit <sha>] [--config <path>]");
+    console.error("Usage: md-translate add-source <path> [--commit <sha>] [--config <path>]");
     process.exit(1);
   }
 
@@ -78,8 +78,3 @@ async function main() {
   console.log(`✓ ${translationPath}`);
   console.log(`${blocks.length} blocks, all placeholders — ready to translate.`);
 }
-
-main().catch((err) => {
-  console.error(err);
-  process.exit(1);
-});

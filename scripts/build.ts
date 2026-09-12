@@ -6,7 +6,7 @@
  * failure aborts before anything under `/site/` is touched. Same
  * rendering core as the local dev server.
  *
- * Usage: tsx tools/scripts/build.ts [--config <path>]
+ * Usage: md-translate build [--config <path>]
  */
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
@@ -91,8 +91,8 @@ function checkManifestShapes(config: ResolvedConfig, manifestPaths: string[]): b
   return hasErrors;
 }
 
-async function main(): Promise<void> {
-  const { values } = parseArgs({ args: process.argv.slice(2), options: { config: { type: "string" } } });
+export async function runBuild(argv: string[]): Promise<void> {
+  const { values } = parseArgs({ args: argv, options: { config: { type: "string" } } });
   const config = await loadConfig(values.config);
 
   const manifestPaths = await globManifestPaths(config.root, config.manifestDir);
@@ -126,8 +126,3 @@ async function main(): Promise<void> {
   await buildIndexPage(config, entries);
   console.log(`built  index (${entries.length} document${entries.length === 1 ? "" : "s"})`);
 }
-
-main().catch((err) => {
-  console.error(err);
-  process.exit(1);
-});

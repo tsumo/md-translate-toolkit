@@ -6,7 +6,7 @@
  * the new block list, and updates the manifest to match (ADR-010, this
  * is destructive by design).
  *
- * Usage: tsx tools/scripts/pull-updates.ts [<path>] [--commit <sha>] [--apply]
+ * Usage: md-translate pull-updates [<path>] [--commit <sha>] [--apply]
  *   No <path>: every claimed document, for both the report and --apply.
  *     In a terminal, omitting <path> opens a document picker instead,
  *     offering "All documents" unless --commit is also given.
@@ -28,13 +28,11 @@ import { globManifestPaths, manifestPathFor } from "../paths.js";
 import { canPrompt, pickClaimedPath } from "../pick-path.js";
 import { parseBlocks, stringifyBlocks } from "../split-blocks.js";
 
-const { positionals, values } = parseArgs({
-  args: process.argv.slice(2),
-  allowPositionals: true,
-  options: { commit: { type: "string" }, apply: { type: "boolean" }, config: { type: "string" } },
-});
-
-async function resolvePath(config: ResolvedConfig): Promise<string | undefined> {
+async function resolvePath(
+  positionals: string[],
+  values: { commit?: string },
+  config: ResolvedConfig,
+): Promise<string | undefined> {
   if (positionals[0]) return positionals[0];
   if (!canPrompt()) return undefined;
   // --commit needs one real document, never "all documents" — --apply doesn't.
@@ -43,12 +41,18 @@ async function resolvePath(config: ResolvedConfig): Promise<string | undefined> 
     : pickClaimedPath({ includeAll: true }, config.root, config.manifestDir);
 }
 
-async function main(): Promise<void> {
+export async function runPullUpdates(argv: string[]): Promise<void> {
+  const { positionals, values } = parseArgs({
+    args: argv,
+    allowPositionals: true,
+    options: { commit: { type: "string" }, apply: { type: "boolean" }, config: { type: "string" } },
+  });
+
   const config = await loadConfig(values.config);
-  const path = await resolvePath(config);
+  const path = await resolvePath(positionals, values, config);
 
   if (values.commit !== undefined && !path) {
-    console.error("Usage: tsx tools/scripts/pull-updates.ts <path> --commit <sha> [--apply] [--config <path>]");
+    console.error("Usage: md-translate pull-updates <path> --commit <sha> [--apply] [--config <path>]");
     console.error("--commit requires <path> — one commit doesn't apply across many different files.");
     process.exit(1);
   }
@@ -100,8 +104,3 @@ async function main(): Promise<void> {
 
   process.exit(hasNotFound ? 1 : 0);
 }
-
-main().catch((err) => {
-  console.error(err);
-  process.exit(1);
-});

@@ -5,7 +5,7 @@
  * placeholder, since those two states are strong claims other tooling and
  * readers will trust.
  *
- * Usage: tsx tools/scripts/set-status.ts [<path>] <status> [--block <index>] [--comment "..."]
+ * Usage: md-translate set-status [<path>] <status> [--block <index>] [--comment "..."]
  *   <path> is the original_path, e.g. "reviewed/Some File.md". In a
  *   terminal, omitting <path> opens a document picker instead.
  *   No --block: applies to every block (the common case — a reviewer
@@ -23,12 +23,11 @@ import { canPrompt, pickClaimedPath } from "../pick-path.js";
 import { parseBlocks, translationProgress } from "../split-blocks.js";
 import { deriveFileStatus, isInvalidCompletion, isValidBlockStatus, VALID_BLOCK_STATUSES } from "../status.js";
 
-const USAGE =
-  'Usage: tsx tools/scripts/set-status.ts [<path>] <status> [--block <index>] [--comment "..."] [--config <path>]';
+const USAGE = 'Usage: md-translate set-status [<path>] <status> [--block <index>] [--comment "..."] [--config <path>]';
 
-async function main() {
+export async function runSetStatus(argv: string[]): Promise<void> {
   const { positionals, values } = parseArgs({
-    args: process.argv.slice(2),
+    args: argv,
     allowPositionals: true,
     options: { block: { type: "string" }, comment: { type: "string" }, config: { type: "string" } },
   });
@@ -95,8 +94,3 @@ async function main() {
   console.log(`${manifestPath}: ${target} → ${status}${values.comment ? ` ("${values.comment}")` : ""}`);
   console.log(`File status: ${fileStatus}`);
 }
-
-main().catch((err) => {
-  console.error(err);
-  process.exit(1);
-});
