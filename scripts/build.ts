@@ -6,46 +6,60 @@
  * failure aborts before anything under `/site/` is touched. Same
  * rendering core as the local dev server.
  *
- * Usage: tsx tools/scripts/build.ts
+ * Usage: tsx tools/scripts/build.ts [--config <path>]
  */
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
+import { parseArgs } from "node:util";
 import type { RootContent } from "mdast";
 import { NotFoundError } from "../cache.js";
+import type { ResolvedConfig } from "../config.js";
+import { loadConfig } from "../config.js";
 import { diffAgainstUpstream, hasChanges } from "../diff-upstream.js";
 import { validateManifestShape } from "../manifest-schema.js";
-import { globManifestPaths, PROJECT_ROOT, sitePathFor } from "../paths.js";
+import { globManifestPaths, sitePathFor } from "../paths.js";
 import { documentToBlockHtml, renderDocumentPage, renderIndexPage } from "../render.js";
 import type { ManifestEntry } from "../types.js";
 import { verifyAll } from "../verify-checks.js";
 
-const SITE_ROOT = join(PROJECT_ROOT, "site");
-
-function outputPathFor(entry: ManifestEntry): string {
-  // The raw path, not URL-encoded: a browser decodes an encoded href back to
-  // these exact characters when it requests the page, so the file on disk
-  // must be named with the real characters too.
-  return join(SITE_ROOT, sitePathFor(entry.original_path));
+function siteRoot(config: ResolvedConfig): string {
+  return join(config.root, config.siteDir);
 }
 
-function buildDocumentPage(entry: ManifestEntry, originalNodes: RootContent[], translationNodes: RootContent[]): void {
-  const outPath = outputPathFor(entry);
+function outputPathFor(config: ResolvedConfig, entry: ManifestEntry): string {
+  return join(siteRoot(config), sitePathFor(entry.original_path));
+}
+
+function buildDocumentPage(
+  config: ResolvedConfig,
+  entry: ManifestEntry,
+  originalNodes: RootContent[],
+  translationNodes: RootContent[],
+): void {
+  const outPath = outputPathFor(config, entry);
   // A document page can sit several directories deep (mirroring `original_path`), and the
   // site is served from an unknown base path (e.g. a GitHub Pages project subpath). So the
   // link back to the index is relative to this page's own file, not an absolute `/`.
-  const backHref = relative(dirname(outPath), join(SITE_ROOT, "index.html"));
+  const backHref = relative(dirname(outPath), join(siteRoot(config), "index.html"));
   const originalHtml = documentToBlockHtml(originalNodes);
-  const page = renderDocumentPage(entry, originalHtml, translationNodes, backHref);
+  const page = renderDocumentPage(entry, originalHtml, translationNodes, backHref, {
+    licenseName: config.licenseName,
+    licenseUrl: config.licenseUrl,
+  });
 
   mkdirSync(dirname(outPath), { recursive: true });
   writeFileSync(outPath, page);
 }
 
-async function computeStaleness(entries: ManifestEntry[]): Promise<Map<string, boolean>> {
+async function computeStaleness(
+  entries: ManifestEntry[],
+  cacheDir: string,
+  defaultBranch: string,
+): Promise<Map<string, boolean>> {
   const staleness = new Map<string, boolean>();
   for (const entry of entries) {
     try {
-      const { commit, diff } = await diffAgainstUpstream(entry, undefined);
+      const { commit, diff } = await diffAgainstUpstream(entry, undefined, cacheDir, defaultBranch);
       staleness.set(entry.original_path, commit !== entry.source_commit && hasChanges(diff, entry.blocks.length));
     } catch (err) {
       if (!(err instanceof NotFoundError)) throw err;
@@ -55,16 +69,17 @@ async function computeStaleness(entries: ManifestEntry[]): Promise<Map<string, b
   return staleness;
 }
 
-async function buildIndexPage(entries: ManifestEntry[]): Promise<void> {
-  const staleness = await computeStaleness(entries);
-  writeFileSync(join(SITE_ROOT, "index.html"), renderIndexPage(entries, "", staleness));
+async function buildIndexPage(config: ResolvedConfig, entries: ManifestEntry[]): Promise<void> {
+  const staleness = await computeStaleness(entries, config.cacheDir, config.defaultBranch);
+  const attribution = { licenseName: config.licenseName, licenseUrl: config.licenseUrl };
+  writeFileSync(join(siteRoot(config), "index.html"), renderIndexPage(entries, attribution, "", staleness));
 }
 
 /** Validates every manifest file's shape, printing an `ok`/`FAIL` line for each. Returns whether any failed. */
-function checkManifestShapes(manifestPaths: string[]): boolean {
+function checkManifestShapes(config: ResolvedConfig, manifestPaths: string[]): boolean {
   let hasErrors = false;
   for (const { path, errors } of validateManifestShape(manifestPaths)) {
-    const displayPath = relative(PROJECT_ROOT, path);
+    const displayPath = relative(config.root, path);
     if (errors.length === 0) {
       console.log(`ok    ${displayPath}`);
     } else {
@@ -77,17 +92,27 @@ function checkManifestShapes(manifestPaths: string[]): boolean {
 }
 
 async function main(): Promise<void> {
-  const manifestPaths = await globManifestPaths();
+  const { values } = parseArgs({ args: process.argv.slice(2), options: { config: { type: "string" } } });
+  const config = await loadConfig(values.config);
+
+  const manifestPaths = await globManifestPaths(config.root, config.manifestDir);
 
   // Shape first: a malformed manifest file would otherwise crash the content
   // checks below with a confusing error instead of Ajv's clear one.
-  if (checkManifestShapes(manifestPaths)) process.exit(1);
+  if (checkManifestShapes(config, manifestPaths)) process.exit(1);
 
-  const { entries, results, hasErrors } = await verifyAll(manifestPaths, true);
+  const { entries, results, hasErrors } = await verifyAll(
+    manifestPaths,
+    true,
+    config.root,
+    config.translationsDir,
+    config.cacheDir,
+  );
   if (hasErrors) process.exit(1);
 
-  rmSync(SITE_ROOT, { recursive: true, force: true });
-  mkdirSync(SITE_ROOT, { recursive: true });
+  const root = siteRoot(config);
+  rmSync(root, { recursive: true, force: true });
+  mkdirSync(root, { recursive: true });
 
   for (let i = 0; i < entries.length; i++) {
     const entry = entries[i];
@@ -95,10 +120,10 @@ async function main(): Promise<void> {
     // hasErrors is false, so translationNodes are present
     if (!translationNodes) throw new Error(`unreachable: ${entry.original_path} has no translationNodes`);
 
-    buildDocumentPage(entry, originalNodes, translationNodes);
+    buildDocumentPage(config, entry, originalNodes, translationNodes);
     console.log(`built  ${entry.original_path}`);
   }
-  await buildIndexPage(entries);
+  await buildIndexPage(config, entries);
   console.log(`built  index (${entries.length} document${entries.length === 1 ? "" : "s"})`);
 }
 

@@ -7,9 +7,11 @@
  */
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { Ajv } from "ajv";
 import { createGenerator } from "ts-json-schema-generator";
-import { PROJECT_ROOT } from "./paths.js";
+
+const PACKAGE_ROOT = fileURLToPath(new URL("..", import.meta.url));
 
 export interface SchemaCheckResult {
   path: string;
@@ -19,8 +21,8 @@ export interface SchemaCheckResult {
 /** Validates every manifest file at `manifestPaths` against `ManifestEntry`'s shape. */
 export function validateManifestShape(manifestPaths: string[]): SchemaCheckResult[] {
   const schema = createGenerator({
-    path: join(PROJECT_ROOT, "tools/types.ts"),
-    tsconfig: join(PROJECT_ROOT, "tsconfig.json"),
+    path: join(PACKAGE_ROOT, "tools/types.ts"),
+    tsconfig: join(PACKAGE_ROOT, "tsconfig.json"),
     type: "ManifestEntry",
   }).createSchema("ManifestEntry");
 

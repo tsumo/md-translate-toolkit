@@ -12,7 +12,7 @@ import { join, relative } from "node:path";
 import type { RootContent } from "mdast";
 import { fetchOriginal } from "./cache.js";
 import { readManifestEntry } from "./manifest-io.js";
-import { globTranslationPaths, PROJECT_ROOT } from "./paths.js";
+import { globTranslationPaths } from "./paths.js";
 import { fingerprintBlock, parseBlocks } from "./split-blocks.js";
 import { isInvalidCompletion } from "./status.js";
 import type { ManifestEntry } from "./types.js";
@@ -81,10 +81,14 @@ export function checkEntry(
 }
 
 /** Every translation file with no manifest entry claiming it. */
-export async function findOrphanedTranslations(entries: ManifestEntry[]): Promise<string[]> {
-  const claimedPaths = new Set(entries.map((entry) => join(PROJECT_ROOT, entry.translation_path)));
-  const translationFiles = await globTranslationPaths();
-  return translationFiles.filter((file) => !claimedPaths.has(file)).map((file) => relative(PROJECT_ROOT, file));
+export async function findOrphanedTranslations(
+  entries: ManifestEntry[],
+  root: string,
+  translationsDir: string,
+): Promise<string[]> {
+  const claimedPaths = new Set(entries.map((entry) => join(root, entry.translation_path)));
+  const translationFiles = await globTranslationPaths(root, translationsDir);
+  return translationFiles.filter((file) => !claimedPaths.has(file)).map((file) => relative(root, file));
 }
 
 export interface VerifyAllResult {
@@ -97,17 +101,23 @@ export interface VerifyAllResult {
  * Loads and checks every manifest at `manifestPaths`, printing an
  * `ok`/`FAIL` line for each as it goes.
  */
-export async function verifyAll(manifestPaths: string[], checkOrphans: boolean): Promise<VerifyAllResult> {
+export async function verifyAll(
+  manifestPaths: string[],
+  checkOrphans: boolean,
+  root: string,
+  translationsDir: string,
+  cacheDir: string,
+): Promise<VerifyAllResult> {
   let hasErrors = false;
   const entries: ManifestEntry[] = [];
   const results: CheckResult[] = [];
 
   for (const manifestPath of manifestPaths) {
-    const displayPath = relative(PROJECT_ROOT, manifestPath);
+    const displayPath = relative(root, manifestPath);
     const entry = readManifestEntry(manifestPath);
     entries.push(entry);
 
-    const originalContent = await fetchOriginal(entry.source_repo, entry.source_commit, entry.original_path);
+    const originalContent = await fetchOriginal(entry.source_repo, entry.source_commit, entry.original_path, cacheDir);
     const translationContent = existsSync(entry.translation_path)
       ? readFileSync(entry.translation_path, "utf-8")
       : undefined;
@@ -127,7 +137,7 @@ export async function verifyAll(manifestPaths: string[], checkOrphans: boolean):
   // other real, claimed file would show as an orphan. This check needs
   // every entry loaded to work correctly.
   if (checkOrphans) {
-    for (const orphan of await findOrphanedTranslations(entries)) {
+    for (const orphan of await findOrphanedTranslations(entries, root, translationsDir)) {
       hasErrors = true;
       console.error(`FAIL  ${orphan}: no manifest entry claims this translation file`);
     }

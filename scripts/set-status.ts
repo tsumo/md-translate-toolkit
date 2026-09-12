@@ -15,6 +15,7 @@
  */
 import { readFileSync } from "node:fs";
 import { parseArgs } from "node:util";
+import { loadConfig } from "../config.js";
 import { truncatedList } from "../diff-upstream.js";
 import { readManifestEntry, writeManifestEntry } from "../manifest-io.js";
 import { manifestPathFor } from "../paths.js";
@@ -22,14 +23,17 @@ import { canPrompt, pickClaimedPath } from "../pick-path.js";
 import { parseBlocks, translationProgress } from "../split-blocks.js";
 import { deriveFileStatus, isInvalidCompletion, isValidBlockStatus, VALID_BLOCK_STATUSES } from "../status.js";
 
-const USAGE = 'Usage: tsx tools/scripts/set-status.ts [<path>] <status> [--block <index>] [--comment "..."]';
+const USAGE =
+  'Usage: tsx tools/scripts/set-status.ts [<path>] <status> [--block <index>] [--comment "..."] [--config <path>]';
 
 async function main() {
   const { positionals, values } = parseArgs({
     args: process.argv.slice(2),
     allowPositionals: true,
-    options: { block: { type: "string" }, comment: { type: "string" } },
+    options: { block: { type: "string" }, comment: { type: "string" }, config: { type: "string" } },
   });
+
+  const config = await loadConfig(values.config);
 
   // One positional given means it's <status>, with <path> left for the picker below.
   const [path, status] = positionals.length === 1 ? [undefined, positionals[0]] : positionals;
@@ -49,13 +53,14 @@ async function main() {
     process.exit(1);
   }
 
-  const resolvedPath = path ?? (canPrompt() ? await pickClaimedPath({ includeAll: false }) : undefined);
+  const resolvedPath =
+    path ?? (canPrompt() ? await pickClaimedPath({ includeAll: false }, config.root, config.manifestDir) : undefined);
   if (!resolvedPath) {
     console.error(USAGE);
     process.exit(1);
   }
 
-  const manifestPath = manifestPathFor(resolvedPath);
+  const manifestPath = manifestPathFor(resolvedPath, config.manifestDir);
   const entry = readManifestEntry(manifestPath);
 
   const targetIndices = values.block !== undefined ? [Number(values.block)] : entry.blocks.map((_, i) => i);

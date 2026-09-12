@@ -10,6 +10,7 @@ import rehypeSlug from "rehype-slug";
 import rehypeStringify from "rehype-stringify";
 import remarkRehype from "remark-rehype";
 import { unified } from "unified";
+import type { ResolvedConfig } from "./config.js";
 import { encodePathSegments, hrefForDoc } from "./paths.js";
 import { isUntranslated, translationProgress } from "./split-blocks.js";
 import { deriveFileStatus } from "./status.js";
@@ -69,8 +70,7 @@ export function pageWrapper(title: string, bodyHtml: string, extraBodyHtml = "")
 <body>${bodyHtml}${extraBodyHtml}</body></html>`;
 }
 
-const ORIGINAL_REPO_URL = "https://github.com/OriginalMadman/Ars-Magica-Open-License";
-const CC_BY_SA_URL = "https://creativecommons.org/licenses/by-sa/4.0/";
+type Attribution = Pick<ResolvedConfig, "licenseName" | "licenseUrl">;
 
 /** A link to `path` as it exists in `repo` at `commit`, viewable on GitHub's web UI. */
 function githubBlobUrl(repo: string, commit: string, path: string): string {
@@ -79,16 +79,27 @@ function githubBlobUrl(repo: string, commit: string, path: string): string {
 
 /**
  * Attribution chrome for the generated site, satisfying CC BY-SA 4.0 since
- * a translated file itself carries none (DECISIONS.md, ADR-014). `entry`
+ * a translated file itself carries none (DECISIONS.md, ADR-014). The
+ * original-work name and link come straight from `entry.source_repo`, so
+ * they can never drift out of sync with what was actually pinned. `entry`
  * adds a link to that document's exact pinned commit; omit it for a page
- * with no single document behind it, like the index.
+ * with no single document behind it, like the index. `attribution`'s
+ * license line only appears once both its fields are set.
  */
-function renderFooter(entry?: ManifestEntry): string {
-  const commitLink = entry
-    ? ` (<a href="${githubBlobUrl(entry.source_repo, entry.source_commit, entry.original_path)}">view original at this commit</a>)`
-    : "";
-  return `<footer><p>Translated from <a href="${ORIGINAL_REPO_URL}">Ars Magica Open License</a>${commitLink} —
-    a modified (translated) derivative work, licensed under <a href="${CC_BY_SA_URL}">CC BY-SA 4.0</a>.</p></footer>`;
+function renderFooter(attribution: Attribution, entry?: ManifestEntry): string {
+  const parts: string[] = [];
+
+  if (entry) {
+    const originalWorkUrl = `https://github.com/${entry.source_repo}`;
+    const commitLink = `<a href="${githubBlobUrl(entry.source_repo, entry.source_commit, entry.original_path)}">view original at this commit</a>`;
+    parts.push(`Translated from <a href="${originalWorkUrl}">${escapeHtml(entry.source_repo)}</a> (${commitLink})`);
+  }
+
+  if (attribution.licenseName && attribution.licenseUrl) {
+    parts.push(`Licensed under <a href="${attribution.licenseUrl}">${escapeHtml(attribution.licenseName)}</a>`);
+  }
+
+  return parts.length > 0 ? `<footer><p>${parts.join(" — ")}.</p></footer>` : "";
 }
 
 /**
@@ -124,15 +135,18 @@ export function renderDocumentPage(
   originalHtml: string[],
   translationNodes: RootContent[],
   backHref: string,
+  attribution: Attribution,
   extraBodyHtml = "",
 ): string {
   const translationHtml = documentToBlockHtml(translationNodes);
-  const body = renderDocumentBody(backHref, originalHtml, translationHtml, translationNodes) + renderFooter(entry);
+  const body =
+    renderDocumentBody(backHref, originalHtml, translationHtml, translationNodes) + renderFooter(attribution, entry);
   return pageWrapper(entry.original_path, body, extraBodyHtml);
 }
 
 export function renderIndexPage(
   entries: ManifestEntry[],
+  attribution: Attribution,
   extraBodyHtml = "",
   staleness?: Map<string, boolean>,
 ): string {
@@ -143,7 +157,7 @@ export function renderIndexPage(
       return renderIndexItem(entry, progress, stale);
     })
     .join("");
-  const body = `<h1>Claimed documents</h1><ul class="index">${items}</ul>${renderFooter()}`;
+  const body = `<h1>Claimed documents</h1><ul class="index">${items}</ul>${renderFooter(attribution)}`;
   return pageWrapper("Translations", body, extraBodyHtml);
 }
 

@@ -3,7 +3,7 @@
  * manifest entry, and generates a translation skeleton (every block
  * present, each marked untranslated with a text preview — ADR-007).
  *
- * Usage: tsx tools/scripts/add-source.ts [<path>] [--commit <sha>]
+ * Usage: tsx tools/scripts/add-source.ts [<path>] [--commit <sha>] [--config <path>]
  *   <path> is relative to the upstream repo root, e.g.
  *   "reviewed/Ars Magica - Definitive Edition (Core Rules).md". In a
  *   terminal, omitting <path> opens a picker over unclaimed upstream files
@@ -14,30 +14,38 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
 import { parseArgs } from "node:util";
 import { fetchOriginal, resolveCommit } from "../cache.js";
+import { loadConfig } from "../config.js";
 import { writeManifestEntry } from "../manifest-io.js";
 import { manifestPathFor } from "../paths.js";
 import { canPrompt, pickUpstreamPath } from "../pick-path.js";
 import { fingerprintBlock, parseBlocks, placeholderFor, stringifyBlocks } from "../split-blocks.js";
 import type { BlockEntry, ManifestEntry } from "../types.js";
 
-const SOURCE_REPO = "OriginalMadman/Ars-Magica-Open-License";
-
 async function main() {
   const { positionals, values } = parseArgs({
     args: process.argv.slice(2),
     allowPositionals: true,
-    options: { commit: { type: "string" } },
+    options: { commit: { type: "string" }, config: { type: "string" } },
   });
 
-  const commit = await resolveCommit(SOURCE_REPO, values.commit);
+  const config = await loadConfig(values.config);
+  if (!config.defaultRepo) {
+    console.error("No upstream repo configured. Set `upstream.defaultRepo` in translate.config.js.");
+    process.exit(1);
+  }
+  const sourceRepo = config.defaultRepo;
 
-  const path = positionals[0] ?? (canPrompt() ? await pickUpstreamPath(SOURCE_REPO, commit) : undefined);
+  const commit = await resolveCommit(sourceRepo, values.commit, config.defaultBranch);
+
+  const path =
+    positionals[0] ??
+    (canPrompt() ? await pickUpstreamPath(sourceRepo, commit, config.root, config.manifestDir) : undefined);
   if (!path) {
-    console.error("Usage: tsx tools/scripts/add-source.ts <path> [--commit <sha>]");
+    console.error("Usage: tsx tools/scripts/add-source.ts <path> [--commit <sha>] [--config <path>]");
     process.exit(1);
   }
 
-  const content = await fetchOriginal(SOURCE_REPO, commit, path);
+  const content = await fetchOriginal(sourceRepo, commit, path, config.cacheDir);
   const sha256 = createHash("sha256").update(content).digest("hex");
 
   const nodes = parseBlocks(content);
@@ -47,10 +55,10 @@ async function main() {
     status: "in-progress",
   }));
 
-  const translationPath = `translations/${path}`;
+  const translationPath = `${config.translationsDir}/${path}`;
   const manifestEntry: ManifestEntry = {
     original_path: path,
-    source_repo: SOURCE_REPO,
+    source_repo: sourceRepo,
     source_commit: commit,
     source_sha256: sha256,
     translation_path: translationPath,
@@ -58,7 +66,7 @@ async function main() {
     blocks,
   };
 
-  const manifestPath = manifestPathFor(path);
+  const manifestPath = manifestPathFor(path, config.manifestDir);
   writeManifestEntry(manifestPath, manifestEntry);
 
   const skeletonNodes = nodes.map((node) => placeholderFor(node));

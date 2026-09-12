@@ -2,7 +2,7 @@ import { relative } from "node:path";
 import { ExitPromptError } from "@inquirer/core";
 import { search } from "@inquirer/prompts";
 import { fetchRepoTree } from "./cache.js";
-import { globManifestPaths, originalPathFromManifestPath, PROJECT_ROOT } from "./paths.js";
+import { globManifestPaths, originalPathFromManifestPath } from "./paths.js";
 
 /** True iff stdin and stdout are both a real terminal, so a prompt can run. */
 export function canPrompt(): boolean {
@@ -10,9 +10,9 @@ export function canPrompt(): boolean {
 }
 
 /** Every already-claimed document's `original_path`, sorted. */
-export async function listClaimedPaths(): Promise<string[]> {
-  const manifestPaths = await globManifestPaths();
-  return manifestPaths.map((path) => originalPathFromManifestPath(relative(PROJECT_ROOT, path))).sort();
+export async function listClaimedPaths(root: string, manifestDir: string): Promise<string[]> {
+  const manifestPaths = await globManifestPaths(root, manifestDir);
+  return manifestPaths.map((path) => originalPathFromManifestPath(relative(root, path), manifestDir)).sort();
 }
 
 /** Case-insensitive substring filter, for the picker's filter-as-you-type search. */
@@ -30,10 +30,22 @@ const ALL_DOCUMENTS = "";
  * "all documents" choice, returned as `undefined` — the value these tools
  * already use to mean "don't filter by path".
  */
-export async function pickClaimedPath(options: { includeAll: true }): Promise<string | undefined>;
-export async function pickClaimedPath(options: { includeAll: false }): Promise<string>;
-export async function pickClaimedPath(options: { includeAll: boolean }): Promise<string | undefined> {
-  const paths = await listClaimedPaths();
+export async function pickClaimedPath(
+  options: { includeAll: true },
+  root: string,
+  manifestDir: string,
+): Promise<string | undefined>;
+export async function pickClaimedPath(
+  options: { includeAll: false },
+  root: string,
+  manifestDir: string,
+): Promise<string>;
+export async function pickClaimedPath(
+  options: { includeAll: boolean },
+  root: string,
+  manifestDir: string,
+): Promise<string | undefined> {
+  const paths = await listClaimedPaths(root, manifestDir);
   const choice = await runPrompt(() =>
     search<string>({
       message: "Which document?",
@@ -53,8 +65,16 @@ export function filterUnclaimed(treePaths: string[], claimedPaths: string[]): st
 }
 
 /** Prompts for one upstream Markdown file at `commit`, not yet claimed by any manifest entry. */
-export async function pickUpstreamPath(repo: string, commit: string): Promise<string> {
-  const [treePaths, claimedPaths] = await Promise.all([fetchRepoTree(repo, commit), listClaimedPaths()]);
+export async function pickUpstreamPath(
+  repo: string,
+  commit: string,
+  root: string,
+  manifestDir: string,
+): Promise<string> {
+  const [treePaths, claimedPaths] = await Promise.all([
+    fetchRepoTree(repo, commit),
+    listClaimedPaths(root, manifestDir),
+  ]);
   const unclaimed = filterUnclaimed(treePaths, claimedPaths);
   return runPrompt(() =>
     search<string>({

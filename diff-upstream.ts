@@ -84,13 +84,15 @@ export function removedOldIndices(entries: DiffEntry[], oldBlockCount: number): 
 export async function diffAgainstUpstream(
   entry: ManifestEntry,
   commitArg: string | undefined,
+  cacheDir: string,
+  defaultBranch: string,
 ): Promise<{ commit: string; content: string; newNodes: RootContent[]; diff: DiffEntry[] }> {
-  const commit = await resolveCommit(entry.source_repo, commitArg);
+  const commit = await resolveCommit(entry.source_repo, commitArg, defaultBranch);
   if (commit === entry.source_commit) {
     return { commit, content: "", newNodes: [], diff: [] };
   }
 
-  const content = await fetchOriginal(entry.source_repo, commit, entry.original_path);
+  const content = await fetchOriginal(entry.source_repo, commit, entry.original_path, cacheDir);
   const newNodes = parseBlocks(content);
   const newBlocks: ContentBlock[] = newNodes.map((node) => ({
     kind: node.type,

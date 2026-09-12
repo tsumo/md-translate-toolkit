@@ -7,7 +7,6 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { encodePathSegments } from "./paths.js";
 
-const CACHE_ROOT = ".cache/originals";
 const MAX_ATTEMPTS = 4;
 const RETRY_STATUS = new Set([429, 500, 502, 503, 504]);
 
@@ -18,8 +17,8 @@ export class NotFoundError extends Error {
   }
 }
 
-function cachePath(commit: string, path: string): string {
-  return join(CACHE_ROOT, commit, path);
+function cachePath(cacheDir: string, commit: string, path: string): string {
+  return join(cacheDir, commit, path);
 }
 
 function sleep(ms: number): Promise<void> {
@@ -79,8 +78,8 @@ export async function fetchRepoTree(repo: string, commit: string): Promise<strin
  * Returns `path` as it exists in `repo` at `commit`, reading from the
  * local cache when present and fetching (then caching) otherwise.
  */
-export async function fetchOriginal(repo: string, commit: string, path: string): Promise<string> {
-  const cached = cachePath(commit, path);
+export async function fetchOriginal(repo: string, commit: string, path: string, cacheDir: string): Promise<string> {
+  const cached = cachePath(cacheDir, commit, path);
   if (existsSync(cached)) {
     console.log(`cache hit  ${commit.slice(0, 7)} ${path}`);
     return readFileSync(cached, "utf-8");

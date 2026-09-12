@@ -20,6 +20,8 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { parseArgs } from "node:util";
 import { applyResync } from "../apply-diff.js";
 import { NotFoundError } from "../cache.js";
+import type { ResolvedConfig } from "../config.js";
+import { loadConfig } from "../config.js";
 import { diffAgainstUpstream, formatDiffReport } from "../diff-upstream.js";
 import { readManifestEntry, writeManifestEntry } from "../manifest-io.js";
 import { globManifestPaths, manifestPathFor } from "../paths.js";
@@ -29,26 +31,31 @@ import { parseBlocks, stringifyBlocks } from "../split-blocks.js";
 const { positionals, values } = parseArgs({
   args: process.argv.slice(2),
   allowPositionals: true,
-  options: { commit: { type: "string" }, apply: { type: "boolean" } },
+  options: { commit: { type: "string" }, apply: { type: "boolean" }, config: { type: "string" } },
 });
 
-async function resolvePath(): Promise<string | undefined> {
+async function resolvePath(config: ResolvedConfig): Promise<string | undefined> {
   if (positionals[0]) return positionals[0];
   if (!canPrompt()) return undefined;
   // --commit needs one real document, never "all documents" — --apply doesn't.
-  return values.commit !== undefined ? pickClaimedPath({ includeAll: false }) : pickClaimedPath({ includeAll: true });
+  return values.commit !== undefined
+    ? pickClaimedPath({ includeAll: false }, config.root, config.manifestDir)
+    : pickClaimedPath({ includeAll: true }, config.root, config.manifestDir);
 }
 
 async function main(): Promise<void> {
-  const path = await resolvePath();
+  const config = await loadConfig(values.config);
+  const path = await resolvePath(config);
 
   if (values.commit !== undefined && !path) {
-    console.error("Usage: tsx tools/scripts/pull-updates.ts <path> --commit <sha> [--apply]");
+    console.error("Usage: tsx tools/scripts/pull-updates.ts <path> --commit <sha> [--apply] [--config <path>]");
     console.error("--commit requires <path> — one commit doesn't apply across many different files.");
     process.exit(1);
   }
 
-  const manifestPaths = path ? [manifestPathFor(path)] : await globManifestPaths();
+  const manifestPaths = path
+    ? [manifestPathFor(path, config.manifestDir)]
+    : await globManifestPaths(config.root, config.manifestDir);
 
   if (manifestPaths.length === 0) {
     console.log("No manifest files found yet — nothing to check.");
@@ -59,7 +66,12 @@ async function main(): Promise<void> {
   for (const manifestPath of manifestPaths) {
     const entry = readManifestEntry(manifestPath);
     try {
-      const { commit, content, newNodes, diff } = await diffAgainstUpstream(entry, values.commit);
+      const { commit, content, newNodes, diff } = await diffAgainstUpstream(
+        entry,
+        values.commit,
+        config.cacheDir,
+        config.defaultBranch,
+      );
       console.log(formatDiffReport(entry, commit, diff));
 
       if (values.apply && commit !== entry.source_commit) {

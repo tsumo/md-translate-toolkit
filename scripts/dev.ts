@@ -4,21 +4,27 @@
  * It zips the blocks by position. It renders an original and translation
  * two-column HTML page.
  *
- * Usage: tsx tools/scripts/dev.ts [--port <number>]
+ * Usage: tsx tools/scripts/dev.ts [--port <number>] [--config <path>]
  */
 import { existsSync, readFileSync, watch } from "node:fs";
 import type { ServerResponse } from "node:http";
 import { createServer } from "node:http";
 import { parseArgs } from "node:util";
 import { fetchOriginal } from "../cache.js";
+import { loadConfig } from "../config.js";
 import { readManifestEntry } from "../manifest-io.js";
 import { globManifestPaths, manifestPathFor } from "../paths.js";
 import { documentToBlockHtml, renderDocumentPage, renderIndexPage } from "../render.js";
 import { parseBlocks } from "../split-blocks.js";
 import type { ManifestEntry } from "../types.js";
 
-const { values } = parseArgs({ args: process.argv.slice(2), options: { port: { type: "string" } } });
+const { values } = parseArgs({
+  args: process.argv.slice(2),
+  options: { port: { type: "string" }, config: { type: "string" } },
+});
 const PORT = Number(values.port ?? 4000);
+const config = await loadConfig(values.config);
+const attribution = { licenseName: config.licenseName, licenseUrl: config.licenseUrl };
 
 // Open live-reload connections. A file change writes to every one of these.
 const liveReloadClients = new Set<ServerResponse>();
@@ -53,7 +59,7 @@ async function renderOriginalHtml(entry: ManifestEntry): Promise<string[]> {
   const cached = originalHtmlCache.get(key);
   if (cached) return cached;
 
-  const original = await fetchOriginal(entry.source_repo, entry.source_commit, entry.original_path);
+  const original = await fetchOriginal(entry.source_repo, entry.source_commit, entry.original_path, config.cacheDir);
   const html = documentToBlockHtml(parseBlocks(original));
   originalHtmlCache.set(key, html);
   return html;
@@ -73,9 +79,9 @@ const server = createServer(async (req, res) => {
       return;
     }
     if (url.pathname === "/") {
-      const manifestPaths = await globManifestPaths();
+      const manifestPaths = await globManifestPaths(config.root, config.manifestDir);
       const entries = manifestPaths.map((manifestPath) => readManifestEntry(manifestPath));
-      const page = renderIndexPage(entries, LIVE_RELOAD_SCRIPT);
+      const page = renderIndexPage(entries, attribution, LIVE_RELOAD_SCRIPT);
       res.writeHead(200, { "content-type": "text/html; charset=utf-8" });
       res.end(page);
       return;
@@ -84,11 +90,11 @@ const server = createServer(async (req, res) => {
       const originalPath = decodeURIComponent(url.pathname)
         .replace(/^\/doc\//, "")
         .replace(/\.html$/, "");
-      const manifestPath = manifestPathFor(originalPath);
+      const manifestPath = manifestPathFor(originalPath, config.manifestDir);
       const entry = readManifestEntry(manifestPath);
       const translationNodes = parseBlocks(readFileSync(entry.translation_path, "utf-8"));
       const originalHtml = await renderOriginalHtml(entry);
-      const page = renderDocumentPage(entry, originalHtml, translationNodes, "/", LIVE_RELOAD_SCRIPT);
+      const page = renderDocumentPage(entry, originalHtml, translationNodes, "/", attribution, LIVE_RELOAD_SCRIPT);
       res.writeHead(200, { "content-type": "text/html; charset=utf-8" });
       res.end(page);
       return;
@@ -101,8 +107,8 @@ const server = createServer(async (req, res) => {
   }
 });
 
-watchDirectory("translations", broadcastReload);
-watchDirectory(".cache/originals", () => {
+watchDirectory(config.translationsDir, broadcastReload);
+watchDirectory(config.cacheDir, () => {
   originalHtmlCache.clear();
   broadcastReload();
 });
