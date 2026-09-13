@@ -251,13 +251,13 @@ function (for example `runBuild`). This function parses its own `argv`, does fil
 the console, and can call `process.exit`. A utility module holds plain functions with no entry point of its
 own, meant for a script to import.
 
-This split is physical, not just a naming convention. Scripts live under `scripts/`. Utility modules,
-and every `.test.ts` file, stay at the repository root. `cli.js` is the single CLI entry point (ADR-022),
+This split is physical, not just a naming convention. Scripts live under `src/scripts/`. Utility modules,
+and every `.test.ts` file, stay directly under `src/`. `cli.js` is the single CLI entry point (ADR-022),
 and the only plain-JavaScript file in this repository — it registers a loader before it can import anything
 else here, so it cannot itself be one of the TypeScript files that loader is for. It reads the subcommand name
 from `process.argv`, maps it to a script's entry function, and calls that function with the rest of the argv.
 `cli.js` ends with `main().catch((err) => { console.error(err); process.exit(1); })`. No script under
-`scripts/` has this tail. `dev.ts`'s entry function starts a long-lived server, so it does not resolve
+`src/scripts/` has this tail. `dev.ts`'s entry function starts a long-lived server, so it does not resolve
 until the process exits.
 
 A script exports its entry function only for `cli.js` to call. No script imports another script's entry

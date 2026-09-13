@@ -47,4 +47,4 @@ directory.
 
 ## License
 
-MIT — see [LICENSE-CODE.md](LICENSE-CODE.md).
+MIT — see [LICENSE.md](LICENSE.md).

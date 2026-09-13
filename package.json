@@ -4,9 +4,9 @@
   "description": "Config-driven CLI for translating Markdown documents against pinned upstream commits, tracked block by block.",
   "type": "module",
   "license": "MIT",
-  "types": "./config.ts",
+  "types": "./src/config.ts",
   "bin": {
-    "md-translate": "./cli.js"
+    "md-translate": "./src/cli.js"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

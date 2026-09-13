@@ -13,5 +13,5 @@
     "checkJs": true,
     "types": ["node"]
   },
-  "include": ["**/*.ts", "cli.js"]
+  "include": ["**/*.ts", "src/cli.js"]
 }

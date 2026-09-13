@@ -22,7 +22,7 @@ export interface SchemaCheckResult {
 export function validateManifestShape(manifestPaths: string[]): SchemaCheckResult[] {
   const schema = createGenerator({
     path: join(PACKAGE_ROOT, "types.ts"),
-    tsconfig: join(PACKAGE_ROOT, "tsconfig.json"),
+    tsconfig: join(PACKAGE_ROOT, "..", "tsconfig.json"),
     type: "ManifestEntry",
   }).createSchema("ManifestEntry");
 
