@@ -16,7 +16,7 @@ function entryFor(original: string, overrides: Partial<ManifestEntry> = {}): Man
   }));
   return {
     original_path: "reviewed/Test.md",
-    source_repo: "OriginalMadman/Ars-Magica-Open-License",
+    source_repo: "user/Source-Repo",
     source_commit: "abc123",
     source_sha256: createHash("sha256").update(original).digest("hex"),
     translation_path: "translations/reviewed/Test.md",

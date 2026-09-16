@@ -1,11 +1,29 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { PLACEHOLDER_MARKER, parseBlocks } from "./split-blocks.js";
-import { deriveFileStatus, isInvalidCompletion, isValidBlockStatus, VALID_BLOCK_STATUSES } from "./status.js";
-import type { BlockEntry } from "./types.js";
+import {
+  applyBlockStatus,
+  deriveFileStatus,
+  isInvalidCompletion,
+  isValidBlockStatus,
+  VALID_BLOCK_STATUSES,
+} from "./status.js";
+import type { BlockEntry, ManifestEntry } from "./types.js";
 
 function entry(status: BlockEntry["status"]): BlockEntry {
   return { kind: "paragraph", fingerprint: "0000000000000000", status };
+}
+
+function manifestEntry(blocks: BlockEntry[]): ManifestEntry {
+  return {
+    original_path: "reviewed/Simple.md",
+    source_repo: "user/Source-Repo",
+    source_commit: "abc123",
+    source_sha256: "deadbeef",
+    translation_path: "translations/reviewed/Simple.md",
+    last_synced: "2026-01-01",
+    blocks,
+  };
 }
 
 describe("isValidBlockStatus", () => {
@@ -83,5 +101,62 @@ describe("deriveFileStatus", () => {
   it("reports verified for an empty block list, since every/some are vacuously true/false", () => {
     // Zero-block document falls into the "every block is verified" branch before reaching the not-started check
     assert.equal(deriveFileStatus([], { translated: 0, total: 0 }), "verified");
+  });
+});
+
+describe("applyBlockStatus", () => {
+  const translatedTwoBlocks = "Переведён первый блок.\n\nПереведён второй блок.";
+
+  it("mutates the target block, leaves others untouched, and returns the derived file status", () => {
+    const manifest = manifestEntry([entry("in-progress"), entry("in-progress")]);
+    const result = applyBlockStatus(manifest, translatedTwoBlocks, [0], "complete", undefined);
+    assert.deepEqual(result, { ok: true, fileStatus: "in-progress" });
+    assert.equal(manifest.blocks[0].status, "complete");
+    assert.equal(manifest.blocks[1].status, "in-progress");
+  });
+
+  it("mutates every index in a multi-index call, matching the CLI's no-`--block` bulk case", () => {
+    const manifest = manifestEntry([entry("in-progress"), entry("in-progress")]);
+    const result = applyBlockStatus(manifest, translatedTwoBlocks, [0, 1], "verified", undefined);
+    assert.deepEqual(result, { ok: true, fileStatus: "verified" });
+    assert.equal(manifest.blocks[0].status, "verified");
+    assert.equal(manifest.blocks[1].status, "verified");
+  });
+
+  it("rejects an out-of-range index, leaving every block unmutated", () => {
+    const manifest = manifestEntry([entry("in-progress")]);
+    const result = applyBlockStatus(manifest, translatedTwoBlocks, [5], "complete", undefined);
+    assert.equal(result.ok, false);
+    assert.equal(manifest.blocks[0].status, "in-progress");
+  });
+
+  it("rejects complete/verified against a still-placeholder translation block", () => {
+    const manifest = manifestEntry([entry("in-progress")]);
+    const stillPlaceholder = `_${PLACEHOLDER_MARKER}_ preview text.`;
+    const result = applyBlockStatus(manifest, stillPlaceholder, [0], "complete", undefined);
+    assert.equal(result.ok, false);
+    assert.equal(manifest.blocks[0].status, "in-progress");
+  });
+
+  it("rejects needs-attention with no comment, and accepts it once one is given", () => {
+    const manifest = manifestEntry([entry("in-progress")]);
+    const withoutComment = applyBlockStatus(manifest, translatedTwoBlocks, [0], "needs-attention", undefined);
+    assert.equal(withoutComment.ok, false);
+    assert.equal(manifest.blocks[0].status, "in-progress");
+
+    const withComment = applyBlockStatus(manifest, translatedTwoBlocks, [0], "needs-attention", "check this");
+    assert.equal(withComment.ok, true);
+    assert.equal(manifest.blocks[0].status, "needs-attention");
+    assert.equal(manifest.blocks[0].status_comment, "check this");
+  });
+
+  it("clears a block's prior status_comment when re-set with no new comment", () => {
+    const manifest = manifestEntry([
+      { kind: "paragraph", fingerprint: "0000000000000000", status: "needs-attention", status_comment: "old note" },
+    ]);
+    const result = applyBlockStatus(manifest, translatedTwoBlocks, [0], "complete", undefined);
+    assert.equal(result.ok, true);
+    assert.equal(manifest.blocks[0].status, "complete");
+    assert.equal(manifest.blocks[0].status_comment, undefined);
   });
 });

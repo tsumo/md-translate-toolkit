@@ -287,6 +287,28 @@ file from the working directory. A `--config` flag can point at a different file
 Config controls only identity and environment. It does not control the tool's translation method. Block
 granularity, the 4-state status model, and the diff algorithm stay fixed across every consumer.
 
+### ADR-023: In-browser status changes
+
+ADR-008 restricted the browser to rendering. This adds the browser's first write path: each block on the dev
+server's document page gets its own status badge and a plain `<form method="post" action="/api/status">`, with
+no client JS, matching the project's zero-framework, template-literal rendering. Submitting it writes the
+manifest and 302-redirects back to the same page.
+
+The static build never emits this form. `renderDocumentBody`/`renderDocumentPage` take an `editable` flag that
+defaults to off; `build.ts` doesn't pass it, so its output is byte-identical to before this change. This
+feature works only against a locally running dev server — the deployed static site (ADR-018) has no server
+behind it to receive the POST.
+
+The actual validation and mutation (reject an out-of-range index, require a comment for `needs-attention`,
+refuse `complete`/`verified` on a still-placeholder block, mutate the block(s), derive the new file status) is
+one function, `applyBlockStatus` in `status.ts`, shared between `set-status.ts` and this endpoint (ADR-021).
+Page-level "apply to all blocks" stays CLI-only for now — each block on the page gets its own control, not a
+bulk one.
+
+Two open tabs editing the same manifest at nearly the same time can still race: `writeManifestEntry` does a
+full overwrite with no locking, same as when two terminals ran `set-status` concurrently before this feature.
+This risk isn't new, so it isn't solved here.
+
 A document's "view original at this commit" link comes from that document's own manifest entry (`source_repo`,
 `source_commit`), not from static config. Static config only holds the license name and its URL. A static
 original-work name or URL in config could drift from the truth. A value read from the manifest cannot drift.

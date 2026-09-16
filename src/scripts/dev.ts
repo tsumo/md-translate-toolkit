@@ -7,15 +7,16 @@
  * Usage: md-translate dev [--port <number>] [--config <path>]
  */
 import { existsSync, readFileSync, watch } from "node:fs";
-import type { ServerResponse } from "node:http";
+import type { IncomingMessage, ServerResponse } from "node:http";
 import { createServer } from "node:http";
 import { parseArgs } from "node:util";
 import { fetchOriginal } from "../cache.js";
 import { loadConfig } from "../config.js";
-import { readManifestEntry } from "../manifest-io.js";
+import { readManifestEntry, writeManifestEntry } from "../manifest-io.js";
 import { globManifestPaths, manifestPathFor } from "../paths.js";
 import { documentToBlockHtml, renderDocumentPage, renderIndexPage } from "../render.js";
 import { parseBlocks } from "../split-blocks.js";
+import { applyBlockStatus, isValidBlockStatus } from "../status.js";
 import type { ManifestEntry } from "../types.js";
 
 // Open live-reload connections. A file change writes to every one of these.
@@ -39,6 +40,17 @@ const LIVE_RELOAD_SCRIPT = `<script>
   const events = new EventSource("/events");
   events.onmessage = () => location.reload();
 </script>`;
+
+function readRequestBody(req: IncomingMessage): Promise<string> {
+  return new Promise((resolve, reject) => {
+    let body = "";
+    req.on("data", (chunk) => {
+      body += chunk;
+    });
+    req.on("end", () => resolve(body));
+    req.on("error", reject);
+  });
+}
 
 export async function runDev(argv: string[]): Promise<void> {
   const { values } = parseArgs({
@@ -95,9 +107,45 @@ export async function runDev(argv: string[]): Promise<void> {
         const entry = readManifestEntry(manifestPath);
         const translationNodes = parseBlocks(readFileSync(entry.translation_path, "utf-8"));
         const originalHtml = await renderOriginalHtml(entry);
-        const page = renderDocumentPage(entry, originalHtml, translationNodes, "/", attribution, LIVE_RELOAD_SCRIPT);
+        const page = renderDocumentPage(
+          entry,
+          originalHtml,
+          translationNodes,
+          "/",
+          attribution,
+          LIVE_RELOAD_SCRIPT,
+          true,
+        );
         res.writeHead(200, { "content-type": "text/html; charset=utf-8" });
         res.end(page);
+        return;
+      }
+      if (req.method === "POST" && url.pathname === "/api/status") {
+        const form = new URLSearchParams(await readRequestBody(req));
+        const path = form.get("path");
+        const block = Number(form.get("block"));
+        const status = form.get("status") ?? "";
+        const comment = form.get("comment") || undefined;
+
+        if (!path || !Number.isInteger(block) || !isValidBlockStatus(status)) {
+          res.writeHead(400, { "content-type": "text/plain" });
+          res.end("Invalid status update request.");
+          return;
+        }
+
+        const manifestPath = manifestPathFor(path, config.manifestDir);
+        const entry = readManifestEntry(manifestPath);
+        const translationMarkdown = readFileSync(entry.translation_path, "utf-8");
+        const result = applyBlockStatus(entry, translationMarkdown, [block], status, comment);
+        if (!result.ok) {
+          res.writeHead(400, { "content-type": "text/plain" });
+          res.end(result.error);
+          return;
+        }
+
+        writeManifestEntry(manifestPath, entry);
+        res.writeHead(302, { location: `/doc/${encodeURI(path)}.html` });
+        res.end();
         return;
       }
       res.writeHead(404, { "content-type": "text/plain" });
@@ -109,6 +157,7 @@ export async function runDev(argv: string[]): Promise<void> {
   });
 
   watchDirectory(config.translationsDir, broadcastReload);
+  watchDirectory(config.manifestDir, broadcastReload);
   watchDirectory(config.cacheDir, () => {
     originalHtmlCache.clear();
     broadcastReload();

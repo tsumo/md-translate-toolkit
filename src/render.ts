@@ -13,8 +13,8 @@ import { unified } from "unified";
 import type { ResolvedConfig } from "./config.js";
 import { encodePathSegments, hrefForDoc } from "./paths.js";
 import { isUntranslated, translationProgress } from "./split-blocks.js";
-import { deriveFileStatus } from "./status.js";
-import type { ManifestEntry } from "./types.js";
+import { deriveFileStatus, VALID_BLOCK_STATUSES } from "./status.js";
+import type { BlockEntry, ManifestEntry } from "./types.js";
 
 const toHast = unified().use(remarkRehype, { allowDangerousHtml: true }).use(rehypeSlug);
 const stringifyHast = unified().use(rehypeStringify, { allowDangerousHtml: true });
@@ -59,6 +59,7 @@ const PAGE_STYLE = `
   .status-needs-attention { background: #dc2626; }
   .status-stale { background: #d97706; }
   .progress { color: #666; font-size: 0.85rem; }
+  .status-form { display: flex; flex-direction: column; gap: 0.2rem; margin-top: 0.3rem; width: 8rem; }
   ul.flagged { margin: 0.2rem 0 0 1rem; color: #dc2626; font-size: 0.85rem; }
   footer { margin-top: 2rem; padding-top: 1rem; border-top: 1px solid #eee; color: #888; font-size: 0.8rem; }
 `;
@@ -103,6 +104,26 @@ function renderFooter(attribution: Attribution, entry?: ManifestEntry): string {
 }
 
 /**
+ * Status badge + set-status form for one block, shown only on the dev
+ * server's document page — never in the static build (ADR-023). A plain
+ * HTML form with no client JS: submitting it posts to the dev server,
+ * which writes the manifest and redirects back to this same page.
+ */
+function renderStatusForm(originalPath: string, index: number, block: BlockEntry): string {
+  const options = VALID_BLOCK_STATUSES.map(
+    (s) => `<option value="${s}"${s === block.status ? " selected" : ""}>${s}</option>`,
+  ).join("");
+  return `<span class="badge status-${block.status}">${block.status}</span>
+    <form method="post" action="/api/status" class="status-form">
+      <input type="hidden" name="path" value="${escapeHtml(originalPath)}">
+      <input type="hidden" name="block" value="${index}">
+      <select name="status">${options}</select>
+      <input type="text" name="comment" value="${escapeHtml(block.status_comment ?? "")}" placeholder="comment">
+      <button type="submit">Update</button>
+    </form>`;
+}
+
+/**
  * The three-column index|original|translation body for one document's
  * page. The index column shows each block's position — the same number
  * `set-status.ts`'s `--block` flag takes (ADR-006). `backHref` is the link
@@ -115,14 +136,17 @@ export function renderDocumentBody(
   originalHtml: string[],
   translationHtml: string[],
   translationNodes: RootContent[],
+  editable?: { originalPath: string; blocks: BlockEntry[] },
 ): string {
   const rowCount = Math.max(originalHtml.length, translationHtml.length);
   const rows: string[] = [];
   for (let i = 0; i < rowCount; i++) {
     const node = translationNodes[i];
     const rightClass = node && isUntranslated(node) ? ' class="untranslated"' : "";
+    const block = editable?.blocks[i];
+    const statusForm = block ? renderStatusForm(editable.originalPath, i, block) : "";
     rows.push(
-      `<div><p class="block-index">${i}</p></div>`,
+      `<div><p class="block-index">${i}</p>${statusForm}</div>`,
       `<div>${originalHtml[i] ?? ""}</div>`,
       `<div${rightClass}>${translationHtml[i] ?? ""}</div>`,
     );
@@ -137,10 +161,13 @@ export function renderDocumentPage(
   backHref: string,
   attribution: Attribution,
   extraBodyHtml = "",
+  editable = false,
 ): string {
   const translationHtml = documentToBlockHtml(translationNodes);
+  const editableInfo = editable ? { originalPath: entry.original_path, blocks: entry.blocks } : undefined;
   const body =
-    renderDocumentBody(backHref, originalHtml, translationHtml, translationNodes) + renderFooter(attribution, entry);
+    renderDocumentBody(backHref, originalHtml, translationHtml, translationNodes, editableInfo) +
+    renderFooter(attribution, entry);
   return pageWrapper(entry.original_path, body, extraBodyHtml);
 }
 

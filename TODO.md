@@ -8,6 +8,6 @@ they get implemented or proved not worthy after the research.
 
 - In-browser editable panes, if plain-file editing turns out to be ergonomically painful in practice.
 
-- In-browser set-status
-
 - Render color-coded bar for file translation progress.
+
+- Update ADR-018, ADR-022

@@ -81,13 +81,52 @@ describe("renderDocumentBody", () => {
       '<p><a href="../a &amp; b/index.html">&larr; all documents</a></p><div class="columns"></div>',
     );
   });
+
+  it("adds a status badge and set-status form per block when editable info is given", () => {
+    const [n1] = parseBlocks("Переведено.");
+    const editable = {
+      originalPath: "reviewed/Simple.md",
+      blocks: [{ kind: "paragraph", fingerprint: "0000000000000000", status: "complete" as const }],
+    };
+    const body = renderDocumentBody("/", ["<p>O1</p>"], ["<p>T1</p>"], [n1], editable);
+    assert.match(body, /<span class="badge status-complete">complete<\/span>/);
+    assert.match(body, /<form method="post" action="\/api\/status" class="status-form">/);
+    assert.match(body, /<input type="hidden" name="path" value="reviewed\/Simple\.md">/);
+    assert.match(body, /<input type="hidden" name="block" value="0">/);
+    assert.match(body, /<option value="complete" selected>complete<\/option>/);
+    assert.match(body, /<option value="verified">verified<\/option>/);
+  });
+
+  it("renders no status form at all when editable info is omitted, e.g. the static build", () => {
+    const [n1] = parseBlocks("Переведено.");
+    const body = renderDocumentBody("/", ["<p>O1</p>"], ["<p>T1</p>"], [n1]);
+    assert.doesNotMatch(body, /status-form/);
+    assert.doesNotMatch(body, /<form/);
+  });
+
+  it("escapes an existing status_comment containing & when prefilling the comment field", () => {
+    const [n1] = parseBlocks("Переведено.");
+    const editable = {
+      originalPath: "reviewed/Simple.md",
+      blocks: [
+        {
+          kind: "paragraph" as const,
+          fingerprint: "0000000000000000",
+          status: "needs-attention" as const,
+          status_comment: "check this & that",
+        },
+      ],
+    };
+    const body = renderDocumentBody("/", ["<p>O1</p>"], ["<p>T1</p>"], [n1], editable);
+    assert.match(body, /value="check this &amp; that"/);
+  });
 });
 
 describe("renderIndexItem", () => {
   function entry(overrides: Partial<ManifestEntry>): ManifestEntry {
     return {
       original_path: "reviewed/Simple.md",
-      source_repo: "OriginalMadman/Ars-Magica-Open-License",
+      source_repo: "user/Source-Repo",
       source_commit: "abc123",
       source_sha256: "deadbeef",
       translation_path: "translations/reviewed/Simple.md",

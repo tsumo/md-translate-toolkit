@@ -16,12 +16,10 @@
 import { readFileSync } from "node:fs";
 import { parseArgs } from "node:util";
 import { loadConfig } from "../config.js";
-import { truncatedList } from "../diff-upstream.js";
 import { readManifestEntry, writeManifestEntry } from "../manifest-io.js";
 import { manifestPathFor } from "../paths.js";
 import { canPrompt, pickClaimedPath } from "../pick-path.js";
-import { parseBlocks, translationProgress } from "../split-blocks.js";
-import { deriveFileStatus, isInvalidCompletion, isValidBlockStatus, VALID_BLOCK_STATUSES } from "../status.js";
+import { applyBlockStatus, isValidBlockStatus, VALID_BLOCK_STATUSES } from "../status.js";
 
 const USAGE = 'Usage: md-translate set-status [<path>] <status> [--block <index>] [--comment "..."] [--config <path>]';
 
@@ -47,11 +45,6 @@ export async function runSetStatus(argv: string[]): Promise<void> {
     process.exit(1);
   }
 
-  if (status === "needs-attention" && !values.comment) {
-    console.error('"needs-attention" should have --comment explaining what needs attention.');
-    process.exit(1);
-  }
-
   const resolvedPath =
     path ?? (canPrompt() ? await pickClaimedPath({ includeAll: false }, config.root, config.manifestDir) : undefined);
   if (!resolvedPath) {
@@ -64,33 +57,16 @@ export async function runSetStatus(argv: string[]): Promise<void> {
 
   const targetIndices = values.block !== undefined ? [Number(values.block)] : entry.blocks.map((_, i) => i);
 
-  for (const index of targetIndices) {
-    if (!entry.blocks[index]) {
-      console.error(`No block at index ${index} (file has ${entry.blocks.length} blocks, 0-indexed).`);
-      process.exit(1);
-    }
-  }
-
-  const translationNodes = parseBlocks(readFileSync(entry.translation_path, "utf-8"));
-  const stillPlaceholder = targetIndices.filter((index) => isInvalidCompletion(status, translationNodes[index]));
-  if (stillPlaceholder.length > 0) {
-    console.error(
-      `Cannot set "${status}": block(s) ${truncatedList(stillPlaceholder)} still hold a placeholder in ${entry.translation_path}.`,
-    );
+  const translationMarkdown = readFileSync(entry.translation_path, "utf-8");
+  const result = applyBlockStatus(entry, translationMarkdown, targetIndices, status, values.comment);
+  if (!result.ok) {
+    console.error(result.error);
     process.exit(1);
-  }
-
-  for (const index of targetIndices) {
-    entry.blocks[index].status = status;
-    entry.blocks[index].status_comment = values.comment;
   }
 
   writeManifestEntry(manifestPath, entry);
 
-  const progress = translationProgress(readFileSync(entry.translation_path, "utf-8"));
-  const fileStatus = deriveFileStatus(entry.blocks, progress);
-
   const target = values.block !== undefined ? `block ${values.block}` : `all ${targetIndices.length} blocks`;
   console.log(`${manifestPath}: ${target} → ${status}${values.comment ? ` ("${values.comment}")` : ""}`);
-  console.log(`File status: ${fileStatus}`);
+  console.log(`File status: ${result.fileStatus}`);
 }
