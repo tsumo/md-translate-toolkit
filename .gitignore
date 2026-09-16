@@ -8,3 +8,9 @@ Thumbs.db
 *.swp
 *.swo
 *~
+
+# generated build output inside fixture projects
+/fixtures/*/site/
+
+# scratch copies used by e2e tests
+/.tmp/

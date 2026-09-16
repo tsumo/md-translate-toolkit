@@ -8,11 +8,18 @@
   "bin": {
     "md-translate": "./src/cli.js"
   },
+  "files": [
+    "src",
+    "LICENSE.md",
+    "README.md"
+  ],
   "scripts": {
     "typecheck": "tsc --noEmit",
     "test": "tsx --test **/*.test.ts",
     "lint": "biome check .",
-    "lint:fix": "biome check --write ."
+    "lint:fix": "biome check --write .",
+    "fixture:dev": "cd fixtures/example && node ../../src/cli.js dev --port 4200",
+    "fixture:build": "cd fixtures/example && node ../../src/cli.js build"
   },
   "dependencies": {
     "@inquirer/core": "^12.0.2",

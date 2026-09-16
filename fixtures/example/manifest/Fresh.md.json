@@ -1,0 +1,20 @@
+{
+  "original_path": "Fresh.md",
+  "source_repo": "example-org/example-repo",
+  "source_commit": "e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4",
+  "source_sha256": "b3f0b7b70d7754564183e125f4a835814741331205a0b1b47f083b8fe44a0057",
+  "translation_path": "translations/Fresh.md",
+  "last_synced": "2025-01-15",
+  "blocks": [
+    {
+      "kind": "heading",
+      "fingerprint": "f90d012e04464627",
+      "status": "in-progress"
+    },
+    {
+      "kind": "paragraph",
+      "fingerprint": "016e22b2f640d949",
+      "status": "in-progress"
+    }
+  ]
+}

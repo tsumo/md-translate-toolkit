@@ -62,8 +62,8 @@ async function computeStaleness(
       const { commit, diff } = await diffAgainstUpstream(entry, undefined, cacheDir, defaultBranch);
       staleness.set(entry.original_path, commit !== entry.source_commit && hasChanges(diff, entry.blocks.length));
     } catch (err) {
-      if (!(err instanceof NotFoundError)) throw err;
-      console.error(`${entry.original_path}: not found at upstream HEAD — skipping staleness check.`);
+      const reason = err instanceof NotFoundError ? "not found at upstream HEAD" : `staleness check failed (${err})`;
+      console.error(`${entry.original_path}: ${reason} — skipping staleness check.`);
     }
   }
   return staleness;

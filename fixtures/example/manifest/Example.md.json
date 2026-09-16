@@ -1,0 +1,46 @@
+{
+  "original_path": "Example.md",
+  "source_repo": "example-org/example-repo",
+  "source_commit": "e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4",
+  "source_sha256": "5f7ef7e5417e9fefa753f0e2adf261dd79fd691b67342f15981a4583ccced7fa",
+  "translation_path": "translations/Example.md",
+  "last_synced": "2025-01-15",
+  "blocks": [
+    {
+      "kind": "heading",
+      "fingerprint": "14fb5ebdf36c8654",
+      "status": "verified"
+    },
+    {
+      "kind": "paragraph",
+      "fingerprint": "500a892bd7aaff71",
+      "status": "complete"
+    },
+    {
+      "kind": "blockquote",
+      "fingerprint": "2c3117315235142a",
+      "status": "needs-attention",
+      "status_comment": "Check the wording of this quote against the house style guide."
+    },
+    {
+      "kind": "list",
+      "fingerprint": "10155cebf0d229f2",
+      "status": "in-progress"
+    },
+    {
+      "kind": "table",
+      "fingerprint": "fa83320d8507c1c7",
+      "status": "complete"
+    },
+    {
+      "kind": "code",
+      "fingerprint": "c41d5b4beca9619b",
+      "status": "verified"
+    },
+    {
+      "kind": "thematicBreak",
+      "fingerprint": "f52d711103d50a43",
+      "status": "verified"
+    }
+  ]
+}
