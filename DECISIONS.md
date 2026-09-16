@@ -189,20 +189,10 @@ automatic.
 A human checks the upstream repository history and resolves the issue by editing the manifest directly. This
 means repointing `original_path` and rerunning `add-source.ts`-style logic, or removing the entry.
 
-### ADR-018: Deployment target — a shared Pages repository
+### ADR-018: Deployment is out of scope
 
-This repo has no GitHub Pages site of its own. The built site goes into a subfolder of a separate repository,
-`tsumo/tsumo.github.io`. That repository hosts Pages sites for several other projects. Each project has its own
-subfolder.
-
-`deploy.yml` pushes `/site` into the `ars-magica-ru` subfolder of that repository. It uses
-`JamesIves/github-pages-deploy-action`. `deploy.yml` sets the action's `clean` option to `false`. A clean deploy
-deletes every subfolder on the target branch except its own. The action does not track sibling projects. This
-setting protects them.
-
-Push access needs a personal access token. The workflow's own `GITHUB_TOKEN` grants access to this repo only.
-This repo stores the personal access token in a secret named `PAT`. That token grants push access to the
-target repository only.
+`build` produces a static site under `siteDir` (default `site/`) and stops there. This package ships no deploy
+workflow, no push credentials, and no assumption about where the site is hosted or how it gets there.
 
 ### ADR-019: Diff algorithm — Myers, not a hand-rolled LCS
 
@@ -271,14 +261,10 @@ each. `pull-updates.ts` backs its command the same way, with `--apply` as a flag
 A test file always targets a utility module. A script's own CLI concerns, argument parsing, printed output,
 and exit codes, are not unit tested directly.
 
-### ADR-022: Tools package extraction — a separate, generic package
-
-This repository moves `tools/` into its own public repository, as the npm package `md-translate-toolkit`. The
-move shrinks this repository to translation content only. It also lets other translation projects reuse the
-same tool.
+### ADR-022: CLI-only interface, no library export
 
 The package exposes a CLI only. It has one binary, `md-translate`, with subcommands (`build`, `add-source`,
-`dev`, `set-status`, `pull-updates`). The package does not export a library for other code to import.
+`dev`, `set-status`, `pull-updates`). It does not export a library for other code to import.
 
 A consumer repository sets paths, a default upstream repo and branch, and license text in a config file. This
 file is plain JavaScript, typed through a JSDoc comment against a type the package exports. The CLI reads this
@@ -313,20 +299,3 @@ A document's "view original at this commit" link comes from that document's own 
 `source_commit`), not from static config. Static config only holds the license name and its URL. A static
 original-work name or URL in config could drift from the truth. A value read from the manifest cannot drift.
 Every build reads the current manifest.
-
-The move happens in 2 steps. First, this repository removes the hardcoded root path in `tools/` and adds the
-config system above, still inside this repository. Second, after that change passes its tests, `git filter-repo`
-moves the `tools/` history into the new repository in one step. There is no interim npm-workspaces stage.
-
-This repository depends on the new package as a git dependency, pinned to a version tag (for example
-`#v0.1.0`). It does not publish to the npm registry yet.
-
-This ADR log (`DECISIONS.md`) moves in full to the new repository. This repository's `README.md` carries the
-operational facts a translator needs instead:
-
-- A resync can delete a block. Git history is the safety net (ADR-010, in the new repository).
-- A structural mismatch between the original and the translation is a hard CI failure (ADR-012, in the new
-  repository).
-- The 4 status states, and what each one means (ADR-013, in the new repository).
-- The file-naming rule: match the original file name exactly (ADR-009, in the new repository).
-- The Pages deploy target and its `PAT` secret (ADR-018, in the new repository).
