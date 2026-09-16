@@ -144,7 +144,7 @@ export function renderDocumentBody(
     const node = translationNodes[i];
     const rightClass = node && isUntranslated(node) ? ' class="untranslated"' : "";
     const block = editable?.blocks[i];
-    const statusForm = block ? renderStatusForm(editable.originalPath, i, block) : "";
+    const statusForm = block && block.kind !== "thematicBreak" ? renderStatusForm(editable.originalPath, i, block) : "";
     rows.push(
       `<div><p class="block-index">${i}</p>${statusForm}</div>`,
       `<div>${originalHtml[i] ?? ""}</div>`,

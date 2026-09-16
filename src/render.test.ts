@@ -97,6 +97,17 @@ describe("renderDocumentBody", () => {
     assert.match(body, /<option value="verified">verified<\/option>/);
   });
 
+  it("renders no status form for a thematic-break block, which has no text to set status on", () => {
+    const [n1] = parseBlocks("---");
+    const editable = {
+      originalPath: "reviewed/Simple.md",
+      blocks: [{ kind: "thematicBreak", fingerprint: "0000000000000000", status: "complete" as const }],
+    };
+    const body = renderDocumentBody("/", ["<hr>"], ["<hr>"], [n1], editable);
+    assert.doesNotMatch(body, /status-form/);
+    assert.doesNotMatch(body, /<form/);
+  });
+
   it("renders no status form at all when editable info is omitted, e.g. the static build", () => {
     const [n1] = parseBlocks("Переведено.");
     const body = renderDocumentBody("/", ["<p>O1</p>"], ["<p>T1</p>"], [n1]);
