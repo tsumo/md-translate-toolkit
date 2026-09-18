@@ -1,7 +1,7 @@
 /**
  * Local gitignored cache for fetched original files, keyed by commit+path.
  * Safe to cache indefinitely: content is addressed by an immutable commit
- * hash, so a cache hit is always valid (ADR-016).
+ * hash, so a cache hit is always valid.
  */
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";

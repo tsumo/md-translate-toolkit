@@ -62,7 +62,7 @@ export async function runDev(argv: string[]): Promise<void> {
   const attribution = { licenseName: config.licenseName, licenseUrl: config.licenseUrl };
 
   // Rendered HTML per block for a pinned original, keyed by commit + path.
-  // An original is immutable for its pinned commit (ADR-016), so a cache
+  // An original is immutable for its pinned commit, so a cache
   // entry never goes stale on its own — only a `.cache/originals` change
   // (a re-fetch after a manifest edit) can invalidate it.
   const originalHtmlCache = new Map<string, string[]>();

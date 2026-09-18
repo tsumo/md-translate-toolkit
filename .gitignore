@@ -14,3 +14,9 @@ Thumbs.db
 
 # scratch copies used by e2e tests
 /.tmp/
+
+# skill garbage
+/docs/
+/AGENTS.md
+/CONTEXT.md
+/.scratch/

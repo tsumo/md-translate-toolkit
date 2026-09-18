@@ -9,3 +9,6 @@ they get implemented or proved not worthy after the research.
 - In-browser editable panes, if plain-file editing turns out to be ergonomically painful in practice.
 
 - Render color-coded bar for file translation progress.
+
+- `src/scripts/dev.ts` `/api/status` endpoint: validate the `path` form field. It goes into the manifest path
+  unchecked, so a crafted value such as `../../x` can read or write files outside the manifest folder.
