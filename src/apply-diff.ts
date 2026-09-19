@@ -3,7 +3,7 @@ import type { DiffEntry } from "./diff-upstream.js";
 import { fingerprintBlock, placeholderFor } from "./split-blocks.js";
 import type { BlockEntry, BlockStatus } from "./types.js";
 
-/** The status a new block should carry, per ADR-013: precise, not a whole-file downgrade. */
+/** The status a new block should carry, per ADR-010: precise, not a whole-file downgrade. */
 export function resolveStatus(
   diffEntry: DiffEntry | undefined,
   oldBlocks: BlockEntry[],
@@ -31,7 +31,7 @@ export function resolveStatus(
  * Unchanged and changed blocks carry the old translation node forward
  * (even at a shifted index); an added block gets a fresh placeholder
  * generated from the new upstream node; a removed old block has no
- * corresponding output at all — deletion is intentional here (ADR-010).
+ * corresponding output at all — deletion is intentional here (ADR-008).
  */
 export function applyResync(
   diff: DiffEntry[],

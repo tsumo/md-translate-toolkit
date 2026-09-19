@@ -96,7 +96,7 @@ function renderFooter(attribution: Attribution, entry?: ManifestEntry): string {
 
 /**
  * Status badge + set-status form for one block, shown only on the dev
- * server's document page — never in the static build (ADR-023). A plain
+ * server's document page — never in the static build (ADR-016). A plain
  * HTML form with no client JS: submitting it posts to the dev server,
  * which writes the manifest and redirects back to this same page.
  */
@@ -117,7 +117,7 @@ function renderStatusForm(originalPath: string, index: number, block: BlockEntry
 /**
  * The three-column index|original|translation body for one document's
  * page. The index column shows each block's position — the same number
- * `set-status.ts`'s `--block` flag takes (ADR-006). `backHref` is the link
+ * `set-status.ts`'s `--block` flag takes (ADR-005). `backHref` is the link
  * back to the index — an absolute `/` for the dev server (always served
  * from the true root), or a path relative to this page's own output file
  * for the static build (served under an unknown base path).

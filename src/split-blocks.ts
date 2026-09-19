@@ -1,7 +1,7 @@
 /**
  * Parses a Markdown document into its top-level blocks, fingerprints them
- * (ADR-015), and generates neutral placeholder blocks for translation
- * skeletons (ADR-007). Used identically on originals and translations —
+ * (ADR-011), and generates neutral placeholder blocks for translation
+ * skeletons (ADR-006). Used identically on originals and translations —
  * same splitter, no special-casing.
  */
 import { createHash } from "node:crypto";
@@ -24,13 +24,13 @@ export function parseBlocks(markdown: string): RootContent[] {
   return tree.children;
 }
 
-// Fixed, normalized stringify options for fingerprinting (ADR-015): canonicalizes
+// Fixed, normalized stringify options for fingerprinting (ADR-011): canonicalizes
 // formatting so purely cosmetic upstream edits don't change the fingerprint.
 const normalizedStringify = unified()
   .use(remarkStringify, { bullet: "-", emphasis: "_", strong: "*", fence: "`", rule: "-" })
   .use(remarkGfm);
 
-/** sha256 of the block's normalized re-serialization, truncated to 16 hex chars (ADR-015). */
+/** sha256 of the block's normalized re-serialization, truncated to 16 hex chars (ADR-011). */
 export function fingerprintBlock(node: RootContent): string {
   const root: Root = { type: "root", children: [node] };
   const text = normalizedStringify.stringify(root);
@@ -54,7 +54,7 @@ export function stringifyBlocks(nodes: RootContent[]): string {
   return readableStringify.stringify(root);
 }
 
-/** Untranslated-block marker (ADR-005, ADR-007). A block is untranslated iff its text starts with this. */
+/** Untranslated-block marker (ADR-004, ADR-006). A block is untranslated iff its text starts with this. */
 export const PLACEHOLDER_MARKER = "(не переведено)";
 
 const PREVIEW_MAX_CHARS = 80;
@@ -82,10 +82,10 @@ function markerWithPreview(node: RootContent): PhrasingContent[] {
 
 /**
  * A placeholder node of the same kind as `node`: the marker plus a
- * truncated preview of the original's text (ADR-005, ADR-007). Preserves
+ * truncated preview of the original's text (ADR-004, ADR-006). Preserves
  * structural detail that's cheap to keep (heading depth, list
  * ordered-ness, code language) without deep-cloning nested content —
- * blocks are tracked at the top level only (ADR-003).
+ * blocks are tracked at the top level only (ADR-002).
  */
 export function placeholderFor(node: RootContent): RootContent {
   switch (node.type) {

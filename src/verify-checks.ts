@@ -2,7 +2,7 @@
  * Checks manifest entries against their pinned original and translation
  * file: sha256/fingerprint integrity, translation block-kind alignment,
  * and the complete/verified completeness gate. Also cross-checks the
- * manifest/ and translations/ trees against each other (ADR-012, ADR-013).
+ * manifest/ and translations/ trees against each other (ADR-009, ADR-010).
  * No CLI of its own — `build.ts` calls `verifyAll`.
  */
 

@@ -1,14 +1,14 @@
 /**
  * Types for the manifest format. See DECISIONS.md for the rationale
- * behind each field (ADR-001 commit pinning, ADR-006 linking mechanism,
- * ADR-013 status, ADR-015 fingerprint algorithm).
+ * behind each field (ADR-001 commit pinning, ADR-005 linking mechanism,
+ * ADR-010 status, ADR-011 fingerprint algorithm).
  */
 
-/** A block's human-set status (ADR-013). */
+/** A block's human-set status (ADR-010). */
 export type BlockStatus = "in-progress" | "complete" | "verified" | "needs-attention";
 
 /**
- * A block's kind and content fingerprint. A block's position (ADR-006) is
+ * A block's kind and content fingerprint. A block's position (ADR-005) is
  * its index in `ManifestEntry.blocks`, not a field stored here.
  */
 export interface BlockEntry {

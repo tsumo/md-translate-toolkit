@@ -3,7 +3,7 @@
  * from `ManifestEntry`. Generated fresh on every run rather than checked
  * in, so there's one source of truth for the shape. No CLI of its own —
  * `build.ts` calls `validateManifestShape` before trusting any entry's
- * content (ADR-021).
+ * content (ADR-014).
  */
 import { readFileSync } from "node:fs";
 import { join } from "node:path";

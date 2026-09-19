@@ -1,7 +1,7 @@
 /**
  * Claims an upstream file: fetches it at a pinned commit, writes its
  * manifest entry, and generates a translation skeleton (every block
- * present, each marked untranslated with a text preview — ADR-007).
+ * present, each marked untranslated with a text preview — ADR-006).
  *
  * Usage: md-translate add-source [<path>] [--commit <sha>] [--config <path>]
  *   <path> is relative to the upstream repo root, e.g.

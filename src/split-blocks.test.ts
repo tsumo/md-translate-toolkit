@@ -38,7 +38,7 @@ describe("parseBlocks", () => {
     assert.deepEqual(kinds, ["heading", "paragraph", "blockquote", "list", "table", "code", "thematicBreak"]);
   });
 
-  it("does not split list items out on their own (ADR-003)", () => {
+  it("does not split list items out on their own (ADR-002)", () => {
     const nodes = parseBlocks("- one\n- two\n- three");
     assert.equal(nodes.length, 1);
     assert.equal(nodes[0].type, "list");

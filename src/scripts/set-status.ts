@@ -1,6 +1,6 @@
 /**
  * Sets block status within a manifest entry. Status is otherwise a human
- * judgment call (ADR-013) — the one thing enforced here is that
+ * judgment call (ADR-010) — the one thing enforced here is that
  * "complete"/"verified" can't be claimed for a block that still holds a
  * placeholder, since those two states are strong claims other tooling and
  * readers will trust.

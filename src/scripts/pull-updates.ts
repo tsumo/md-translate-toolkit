@@ -3,7 +3,7 @@
  * current HEAD (or --commit's SHA) and diffs it against the manifest's
  * current blocks. Read-only by default. --apply applies the diff for
  * real: rewrites the translation file to stay positionally aligned with
- * the new block list, and updates the manifest to match (ADR-010, this
+ * the new block list, and updates the manifest to match (ADR-008, this
  * is destructive by design).
  *
  * Usage: md-translate pull-updates [<path>] [--commit <sha>] [--apply]
