@@ -32,6 +32,14 @@ function escapeHtml(text: string): string {
 }
 
 const PAGE_STYLE = `
+  :root {
+    --status-not-started: #999;
+    --status-in-progress: #3b82f6;
+    --status-complete: #0d9488;
+    --status-verified: #16a34a;
+    --status-needs-attention: #dc2626;
+    --status-stale: #d97706;
+  }
   body { font-family: system-ui, sans-serif; margin: 0; padding: 1rem 2rem; }
   .columns { display: grid; grid-template-columns: max-content 1fr 1fr; gap: 0 1.5rem; }
   @media (max-width: 768px) {
@@ -45,18 +53,18 @@ const PAGE_STYLE = `
   .status-dialog { position: fixed; position-area: bottom span-right; position-try-fallbacks: flip-block, flip-inline; margin: 0; padding: 0.8rem; border: 1px solid #ccc; border-radius: 0.4rem; box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15); }
   .status-dialog form { display: flex; flex-direction: column; gap: 0.4rem; width: 16rem; }
   .status-dialog .actions { display: flex; gap: 0.4rem; justify-content: flex-end; }
-  .status-error { color: #dc2626; font-size: 0.85rem; margin: 0; }
+  .status-error { color: var(--status-needs-attention); font-size: 0.85rem; margin: 0; }
   h1, h2 { color: #222; }
   ul.index > li { margin-bottom: 0.6rem; }
   .badge { display: inline-block; padding: 0.1rem 0.5rem; border-radius: 1rem; font-size: 0.8rem; color: #fff; }
-  .status-not-started { background: #999; }
-  .status-in-progress { background: #3b82f6; }
-  .status-complete { background: #0d9488; }
-  .status-verified { background: #16a34a; }
-  .status-needs-attention { background: #dc2626; }
-  .status-stale { background: #d97706; }
+  .status-not-started { background: var(--status-not-started); }
+  .status-in-progress { background: var(--status-in-progress); }
+  .status-complete { background: var(--status-complete); }
+  .status-verified { background: var(--status-verified); }
+  .status-needs-attention { background: var(--status-needs-attention); }
+  .status-stale { background: var(--status-stale); }
   .progress { color: #666; font-size: 0.85rem; }
-  ul.flagged { margin: 0.2rem 0 0 1rem; color: #dc2626; font-size: 0.85rem; }
+  ul.flagged { margin: 0.2rem 0 0 1rem; color: var(--status-needs-attention); font-size: 0.85rem; }
   footer { margin-top: 2rem; padding-top: 1rem; border-top: 1px solid #eee; color: #888; font-size: 0.8rem; }
 `;
 

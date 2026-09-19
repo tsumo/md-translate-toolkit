@@ -12,5 +12,3 @@ they get implemented or proved not worthy after the research.
 
 - `src/scripts/dev.ts` `/api/status` endpoint: validate the `path` form field. It goes into the manifest path
   unchecked, so a crafted value such as `../../x` can read or write files outside the manifest folder.
-
-- css vars for status colors
