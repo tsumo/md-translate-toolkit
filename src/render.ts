@@ -78,15 +78,6 @@ function githubBlobUrl(repo: string, commit: string, path: string): string {
   return `https://github.com/${repo}/blob/${commit}/${encodePathSegments(path)}`;
 }
 
-/**
- * Attribution chrome for the generated site, satisfying CC BY-SA 4.0 since
- * a translated file itself carries none (DECISIONS.md, ADR-014). The
- * original-work name and link come straight from `entry.source_repo`, so
- * they can never drift out of sync with what was actually pinned. `entry`
- * adds a link to that document's exact pinned commit; omit it for a page
- * with no single document behind it, like the index. `attribution`'s
- * license line only appears once both its fields are set.
- */
 function renderFooter(attribution: Attribution, entry?: ManifestEntry): string {
   const parts: string[] = [];
 

@@ -24,12 +24,6 @@ Each ADR is one plain paragraph. It states the decision and the reason for it.
 The toolkit pins each document to its own upstream commit. It does not pin the whole upstream repository. This
 lets each document move to a newer upstream version at its own time.
 
-### ADR-002: Toolchain
-
-The toolkit uses Node.js and TypeScript for all scripts and for the site build. The toolkit moves structured
-data between its parts, such as manifest entries and blocks. The TypeScript compiler finds a wrong field name
-or shape before it can damage a manifest. A type check runs in CI for this reason.
-
 ### ADR-003: Translation unit
 
 The toolkit tracks and shows translations one block at a time, not one file at a time. A block is a top-level
@@ -54,7 +48,8 @@ exception. Each placeholder in a translation file holds a short preview of its o
 Neither the original nor the translation contains markers for the toolkit, so both files stay clean. The
 manifest links them. It lists every block of the document in order, with the kind and fingerprint of each
 block. A translation block matches an original block by position, and both must have the same kind. If the
-kinds differ at a position, the toolkit reports the drift and a person must fix it.
+kinds differ at a position, the toolkit reports the drift and a person must fix it. The manifest and translation
+files keep the original path, so the toolkit must quote and encode paths with spaces.
 
 ### ADR-007: Translation skeleton with placeholders
 
@@ -67,27 +62,15 @@ from the block status (ADR-013).
 ### ADR-008: Translators edit in their own editor
 
 A translator edits the translation file in their own editor. A local dev server shows the original and the
-translation side by side in a browser. The server reloads the page when a file changes. The browser does not
-edit translation text. It can only change block status (ADR-023).
+translation side by side in a browser. The server reloads the page when a file changes.
 
-### ADR-009: File naming
-
-The manifest file and the translation file of a document keep the path of the original, including its folders.
-The names keep spaces, parentheses, and other special characters exactly as upstream has them. This makes each
-file easy to find from its original. The toolkit must quote and encode these paths correctly in commands and
-in URLs.
-
-### ADR-010: Applying updates deletes removed blocks
+### ADR-010: Applying updates changes translations
 
 When upstream removes a block, `pull-updates --apply` deletes the matching translated block. It does not only
-flag the block for review. This applies to one document or to all documents in one run. Git history is the
-safety net, so a person can restore any deleted text.
-
-### ADR-011: Upstream changes are not stored
-
-The manifest does not store what changed upstream since the last sync. `pull-updates` compares the pinned
-version with the current upstream version and only reports the result. With `--apply`, the same command applies
-that comparison. A new check is cheap, so the current upstream version is the source of truth.
+flag the block for review. Git history is the safety net, so a person can restore any deleted text. When
+upstream changes a block that was complete or verified, the command sets that block to `needs-attention` and adds
+a comment. Only that claim is out of date, so the rest of the document keeps its status. The command runs on one
+document or on all documents.
 
 ### ADR-012: Structure drift fails the build
 
@@ -101,13 +84,6 @@ Each block stores its own status, and a person sets it, because complete and ver
 block is in-progress (the start state), complete, verified, or needs-attention with a comment. The toolkit
 derives the status of a document from its blocks and does not store it. One needs-attention block makes the
 whole document needs-attention. A document is complete or verified only when every block is.
-
-### ADR-014: Translation files hold no attribution
-
-A translation file holds only the translated content. It has no toolkit markers and no license or attribution
-footer. The generated site shows the attribution instead. It shows a link to the original at its pinned commit
-and the license from the config file. This keeps each translation file a plain mirror of its
-original.
 
 ### ADR-015: Block fingerprints ignore formatting
 
@@ -123,26 +99,13 @@ and a person resolves it. `pull-updates` finds the problem when the file is miss
 version. It must tell a confirmed missing file from a temporary error, such as a rate limit. Otherwise it could
 report a false rename. A pinned document is not affected, because its pinned commit always keeps the old file.
 
-### ADR-018: Deployment is out of scope
-
-The `build` command writes a static site to a local folder and stops. The toolkit has no deploy workflow and no
-push credentials. It does not assume where a consumer project hosts the site. The consumer project chooses how
-to publish it.
-
 ### ADR-019: Diff with a standard library algorithm
 
 The toolkit finds upstream changes by comparing the old and new fingerprint lists with a standard library, not
 a hand-written algorithm. A library scales to very large documents and handles edge cases, such as repeated
 blocks. Between two matching runs, the toolkit pairs the leftover old and new blocks by position and marks them
-as changed. This pairing is a guess. A changed block keeps its translation and gets a recheck (ADR-025). Only a
+as changed. This pairing is a guess. A changed block keeps its translation and gets a recheck. Only a
 removed block loses its translation (ADR-010).
-
-### ADR-020: Interactive document picker
-
-Document paths are long and have spaces, so typing them is slow. When a command needs a path and gets none in a
-real terminal, it opens a picker with search as you type. A typed path always skips the picker. A command that
-runs without a terminal never waits for input, so scripts and CI are safe. `add-source` lists the unclaimed
-files of the upstream repository. `set-status` and `pull-updates` list the documents that the project claims.
 
 ### ADR-021: Scripts and utility modules
 
@@ -170,9 +133,3 @@ the same time can overwrite each other.
 A block cannot be complete or verified while it still holds a placeholder. The `set-status` command and the dev
 server refuse this change. The `build` command fails on a manifest that breaks the rule, because a person can
 edit a manifest by hand. Other tools and readers trust these two states, so they must not be false.
-
-### ADR-025: Upstream changes downgrade only the changed block
-
-When `pull-updates --apply` finds an upstream change in a block, it sets that block to needs-attention and adds
-a comment. It does this only for blocks that were complete or verified. Only these claims are now out of date.
-The rest of the document keeps its status.
