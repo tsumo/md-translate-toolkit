@@ -140,7 +140,7 @@ export async function runDev(argv: string[]): Promise<void> {
         }
 
         writeManifestEntry(manifestPath, entry);
-        res.writeHead(302, { location: `/doc/${encodeURI(path)}.html` });
+        res.writeHead(204);
         res.end();
         return;
       }

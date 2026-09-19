@@ -137,10 +137,8 @@ describe("dev server against the fixture project", () => {
       method: "POST",
       headers: { "content-type": "application/x-www-form-urlencoded" },
       body: new URLSearchParams({ path: "Example.md", block: "1", status: "verified", comment: "" }),
-      redirect: "manual",
     });
-    assert.equal(res.status, 302);
-    assert.equal(res.headers.get("location"), "/doc/Example.md.html");
+    assert.equal(res.status, 204);
 
     const copiedManifest = JSON.parse(readFileSync(join(dir, "manifest/Example.md.json"), "utf-8"));
     assert.equal(copiedManifest.blocks[1].status, "verified");

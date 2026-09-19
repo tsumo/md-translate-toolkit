@@ -28,7 +28,7 @@ export function documentToBlockHtml(nodes: RootContent[]): string[] {
 }
 
 function escapeHtml(text: string): string {
-  return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
 
 const PAGE_STYLE = `
@@ -41,6 +41,11 @@ const PAGE_STYLE = `
   .columns > :nth-child(6n+2), .columns > :nth-child(6n+3) { background: #fafafa; }
   .columns > .untranslated { background: #fff7e6; }
   .block-index { color: #999; font-size: 0.8rem; text-align: right; margin: 1rem 0; }
+  .status-pill { border: 0; border-radius: 1rem; padding: 0.1rem 0.5rem; min-width: 1.8rem; font: inherit; color: #fff; cursor: pointer; }
+  .status-dialog { position: fixed; position-area: bottom span-right; position-try-fallbacks: flip-block, flip-inline; margin: 0; padding: 0.8rem; border: 1px solid #ccc; border-radius: 0.4rem; box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15); }
+  .status-dialog form { display: flex; flex-direction: column; gap: 0.4rem; width: 16rem; }
+  .status-dialog .actions { display: flex; gap: 0.4rem; justify-content: flex-end; }
+  .status-error { color: #dc2626; font-size: 0.85rem; margin: 0; }
   h1, h2 { color: #222; }
   ul.index > li { margin-bottom: 0.6rem; }
   .badge { display: inline-block; padding: 0.1rem 0.5rem; border-radius: 1rem; font-size: 0.8rem; color: #fff; }
@@ -51,7 +56,6 @@ const PAGE_STYLE = `
   .status-needs-attention { background: #dc2626; }
   .status-stale { background: #d97706; }
   .progress { color: #666; font-size: 0.85rem; }
-  .status-form { display: flex; flex-direction: column; gap: 0.2rem; margin-top: 0.3rem; width: 8rem; }
   ul.flagged { margin: 0.2rem 0 0 1rem; color: #dc2626; font-size: 0.85rem; }
   footer { margin-top: 2rem; padding-top: 1rem; border-top: 1px solid #eee; color: #888; font-size: 0.8rem; }
 `;
@@ -86,27 +90,92 @@ function renderFooter(attribution: Attribution, entry?: ManifestEntry): string {
   return parts.length > 0 ? `<footer><p>${parts.join(" — ")}.</p></footer>` : "";
 }
 
-/**
- * The status badge and form of one block. Only the dev server shows it, never the static build (ADR-016).
- * The form posts to the dev server, which writes the manifest and redirects back to the page.
- */
-function renderStatusForm(originalPath: string, index: number, block: BlockEntry): string {
-  const options = VALID_BLOCK_STATUSES.map(
-    (s) => `<option value="${s}"${s === block.status ? " selected" : ""}>${s}</option>`,
-  ).join("");
-  return `<span class="badge status-${block.status}">${block.status}</span>
-    <form method="post" action="/api/status" class="status-form">
-      <input type="hidden" name="path" value="${escapeHtml(originalPath)}">
-      <input type="hidden" name="block" value="${index}">
-      <select name="status">${options}</select>
-      <input type="text" name="comment" value="${escapeHtml(block.status_comment ?? "")}" placeholder="comment">
-      <button type="submit">Update</button>
-    </form>`;
+/** The label of a status pill. It is the block number, and a flagged block also gets a "!". */
+function pillLabel(index: number, block: BlockEntry): string {
+  return block.status === "needs-attention" ? `${index}!` : String(index);
+}
+
+/** The hover text of a status pill: the status, and the comment if there is one. */
+function pillTitle(block: BlockEntry): string {
+  return block.status_comment ? `${block.status}: ${block.status_comment}` : block.status;
 }
 
 /**
+ * The status pill of one block. It shows the block number, colored by status. A click opens the shared status
+ * dialog. Only the dev server shows it, never the static build (ADR-016).
+ */
+function renderStatusPill(index: number, block: BlockEntry): string {
+  const title = escapeHtml(pillTitle(block));
+  return `<p class="block-index"><button type="button" class="status-pill status-${block.status}" data-block="${index}" data-status="${block.status}" data-comment="${escapeHtml(block.status_comment ?? "")}" style="anchor-name: --pill-${index}" title="${title}" aria-label="Block ${index}, ${title}">${pillLabel(index, block)}</button></p>`;
+}
+
+/** The one status dialog of a page. The script below fills it from the clicked pill. */
+function renderStatusDialog(originalPath: string): string {
+  const options = VALID_BLOCK_STATUSES.map((s) => `<option value="${s}">${s}</option>`).join("");
+  return `<dialog id="status-dialog" class="status-dialog">
+    <form id="status-form">
+      <strong id="status-dialog-title"></strong>
+      <input type="hidden" name="path" value="${escapeHtml(originalPath)}">
+      <input type="hidden" name="block" value="">
+      <select name="status">${options}</select>
+      <input type="text" name="comment" placeholder="comment">
+      <p class="status-error" id="status-error" hidden></p>
+      <div class="actions"><button type="button" id="status-cancel">Cancel</button><button type="submit">Save</button></div>
+    </form>
+  </dialog>`;
+}
+
+/**
+ * The script of the status dialog. A click on a pill opens the dialog next to it. CSS anchor positioning places it, so the script only names the anchor. Save posts the form with
+ * `fetch`, so the page keeps its scroll position and an error shows in the dialog. The dev server reloads the
+ * page after it writes the manifest.
+ */
+const STATUS_DIALOG_SCRIPT = `<script>
+  (() => {
+    const dialog = document.getElementById("status-dialog");
+    const form = document.getElementById("status-form");
+    const error = document.getElementById("status-error");
+    const comment = form.elements.comment;
+
+    const syncCommentRequired = () => { comment.required = form.elements.status.value === "needs-attention"; };
+    const close = () => dialog.close();
+
+    document.addEventListener("click", (event) => {
+      const clicked = event.target.closest(".status-pill");
+      if (!clicked) {
+        if (dialog.open && !dialog.contains(event.target)) close();
+        return;
+      }
+      form.elements.block.value = clicked.dataset.block;
+      form.elements.status.value = clicked.dataset.status;
+      comment.value = clicked.dataset.comment;
+      document.getElementById("status-dialog-title").textContent = "Block " + clicked.dataset.block;
+      error.hidden = true;
+      syncCommentRequired();
+      dialog.style.positionAnchor = "--pill-" + clicked.dataset.block;
+      if (!dialog.open) dialog.show();
+      form.elements.status.focus();
+    });
+    document.addEventListener("keydown", (event) => { if (event.key === "Escape" && dialog.open) close(); });
+    document.getElementById("status-cancel").addEventListener("click", close);
+    form.elements.status.addEventListener("change", syncCommentRequired);
+
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const response = await fetch("/api/status", { method: "POST", body: new URLSearchParams(new FormData(form)) });
+      if (!response.ok) {
+        error.textContent = await response.text();
+        error.hidden = false;
+        return;
+      }
+      close();
+    });
+  })();
+</script>`;
+
+/**
  * The body of a document page, with three columns: index, original, translation. The index column shows the
- * block number that `set-status --block` takes. `backHref` links back to the index. It is `/` for the dev
+ * block number that `set-status --block` takes. In the dev server, the number is also the status button. `backHref` links back to the index. It is `/` for the dev
  * server and a relative path for the static build.
  */
 export function renderDocumentBody(
@@ -122,14 +191,16 @@ export function renderDocumentBody(
     const node = translationNodes[i];
     const rightClass = node && isUntranslated(node) ? ' class="untranslated"' : "";
     const block = editable?.blocks[i];
-    const statusForm = block && block.kind !== "thematicBreak" ? renderStatusForm(editable.originalPath, i, block) : "";
+    const indexCell =
+      block && block.kind !== "thematicBreak" ? renderStatusPill(i, block) : `<p class="block-index">${i}</p>`;
     rows.push(
-      `<div><p class="block-index">${i}</p>${statusForm}</div>`,
+      `<div>${indexCell}</div>`,
       `<div>${originalHtml[i] ?? ""}</div>`,
       `<div${rightClass}>${translationHtml[i] ?? ""}</div>`,
     );
   }
-  return `<p><a href="${escapeHtml(backHref)}">&larr; all documents</a></p><div class="columns">${rows.join("")}</div>`;
+  const dialog = editable ? renderStatusDialog(editable.originalPath) + STATUS_DIALOG_SCRIPT : "";
+  return `<p><a href="${escapeHtml(backHref)}">&larr; all documents</a></p><div class="columns">${rows.join("")}</div>${dialog}`;
 }
 
 export function renderDocumentPage(
