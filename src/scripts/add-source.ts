@@ -1,13 +1,10 @@
 /**
- * Claims an upstream file: fetches it at a pinned commit, writes its
- * manifest entry, and generates a translation skeleton (every block
- * present, each marked untranslated with a text preview — ADR-006).
+ * Claims an upstream file. It fetches the file at a pinned commit, writes the manifest entry, and creates a
+ * translation skeleton with a placeholder for each block (ADR-006).
  *
  * Usage: md-translate add-source [<path>] [--commit <sha>] [--config <path>]
- *   <path> is relative to the upstream repo root, e.g.
- *   "reviewed/Ars Magica - Definitive Edition (Core Rules).md". In a
- *   terminal, omitting <path> opens a picker over unclaimed upstream files
- *   instead.
+ *   <path> is relative to the upstream repository root, such as "reviewed/Some File.md". In a terminal, a
+ *   picker of unclaimed files opens without it.
  */
 import { createHash } from "node:crypto";
 import { mkdirSync, writeFileSync } from "node:fs";

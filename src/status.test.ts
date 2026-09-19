@@ -84,11 +84,10 @@ describe("deriveFileStatus", () => {
   });
 
   it("reports in-progress once some content exists, even if every block's stored status is still in-progress", () => {
-    // Compare this test to the one above. Both blocks hold the status
-    // "in-progress" in both tests. A translator can draft real text into
-    // a block, then not yet run set-status. progress.translated shows
-    // this happened. The function reads that value, not the stored
-    // status. This tells the case apart from an untouched file.
+    // Compare this test with the one above. Both use the status "in-progress".
+    // A translator can draft real text and not yet run `set-status`.
+    // `progress.translated` shows this. The function reads that value, not the stored status.
+    // This tells the case apart from an untouched file.
     const blocks = [entry("in-progress"), entry("in-progress")];
     assert.equal(deriveFileStatus(blocks, { translated: 1, total: 2 }), "in-progress");
   });
@@ -99,7 +98,7 @@ describe("deriveFileStatus", () => {
   });
 
   it("reports verified for an empty block list, since every/some are vacuously true/false", () => {
-    // Zero-block document falls into the "every block is verified" branch before reaching the not-started check
+    // A document with no blocks reaches the "every block is verified" rule before the not-started rule.
     assert.equal(deriveFileStatus([], { translated: 0, total: 0 }), "verified");
   });
 });

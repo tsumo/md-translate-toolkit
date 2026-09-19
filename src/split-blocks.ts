@@ -1,8 +1,6 @@
 /**
- * Parses a Markdown document into its top-level blocks, fingerprints them
- * (ADR-011), and generates neutral placeholder blocks for translation
- * skeletons (ADR-006). Used identically on originals and translations —
- * same splitter, no special-casing.
+ * Splits Markdown into top-level blocks, fingerprints them (ADR-011), and makes placeholder blocks for
+ * translation skeletons (ADR-006). The same code handles originals and translations.
  */
 import { createHash } from "node:crypto";
 import type { PhrasingContent, Root, RootContent } from "mdast";
@@ -13,31 +11,30 @@ import remarkStringify from "remark-stringify";
 import { unified } from "unified";
 import type { BlockEntry } from "./types.js";
 
-/** Purely content-derived block data — no status, which is human-owned. */
+/** Block data that comes from content only. It has no status. */
 export type ContentBlock = Pick<BlockEntry, "kind" | "fingerprint">;
 
 const parser = unified().use(remarkParse).use(remarkGfm);
 
-/** Parse Markdown into its top-level block nodes (headings, paragraphs, lists, etc.). */
+/** Parses Markdown into top-level block nodes. */
 export function parseBlocks(markdown: string): RootContent[] {
   const tree = parser.parse(markdown) as Root;
   return tree.children;
 }
 
-// Fixed, normalized stringify options for fingerprinting (ADR-011): canonicalizes
-// formatting so purely cosmetic upstream edits don't change the fingerprint.
+// Fixed output options, so cosmetic upstream edits do not change a fingerprint (ADR-011).
 const normalizedStringify = unified()
   .use(remarkStringify, { bullet: "-", emphasis: "_", strong: "*", fence: "`", rule: "-" })
   .use(remarkGfm);
 
-/** sha256 of the block's normalized re-serialization, truncated to 16 hex chars (ADR-011). */
+/** The first 16 hex characters of the sha256 of the normalized text of the block. */
 export function fingerprintBlock(node: RootContent): string {
   const root: Root = { type: "root", children: [node] };
   const text = normalizedStringify.stringify(root);
   return createHash("sha256").update(text).digest("hex").slice(0, 16);
 }
 
-/** Full block list + fingerprints for a document, in original order. */
+/** Every block of a document, in order, with its fingerprint. */
 export function splitBlocks(markdown: string): ContentBlock[] {
   return parseBlocks(markdown).map((node) => ({
     kind: node.type,
@@ -45,21 +42,21 @@ export function splitBlocks(markdown: string): ContentBlock[] {
   }));
 }
 
-// Human-facing stringify (default formatting) for generated skeleton/output files.
+// Default formatting, for files that people read.
 const readableStringify = unified().use(remarkStringify).use(remarkGfm);
 
-/** Render a list of top-level nodes back to readable Markdown. */
+/** Writes top-level nodes back to Markdown. */
 export function stringifyBlocks(nodes: RootContent[]): string {
   const root: Root = { type: "root", children: nodes };
   return readableStringify.stringify(root);
 }
 
-/** Untranslated-block marker (ADR-004, ADR-006). A block is untranslated iff its text starts with this. */
+/** Marks a block as untranslated. A block is untranslated when its text starts with this (ADR-006). */
 export const PLACEHOLDER_MARKER = "(не переведено)";
 
 const PREVIEW_MAX_CHARS = 80;
 
-/** Truncate `text` to roughly `maxChars`, cutting at a word boundary. */
+/** Cuts `text` to about `maxChars` characters, at a word boundary. */
 function truncatePreview(text: string, maxChars: number): string {
   const collapsed = text.replace(/\s+/g, " ").trim();
   if (collapsed.length <= maxChars) return collapsed;
@@ -72,7 +69,7 @@ function emphasized(text: string): PhrasingContent {
   return { type: "emphasis", children: [{ type: "text", value: text }] };
 }
 
-/** `[marker, preview text]` as phrasing content, or just `[marker]` if there's no text to preview. */
+/** The marker plus a preview of the block text. Only the marker, when the block has no text. */
 function markerWithPreview(node: RootContent): PhrasingContent[] {
   const preview = truncatePreview(nodeToString(node, { includeHtml: false }), PREVIEW_MAX_CHARS);
   return preview
@@ -81,11 +78,9 @@ function markerWithPreview(node: RootContent): PhrasingContent[] {
 }
 
 /**
- * A placeholder node of the same kind as `node`: the marker plus a
- * truncated preview of the original's text (ADR-004, ADR-006). Preserves
- * structural detail that's cheap to keep (heading depth, list
- * ordered-ness, code language) without deep-cloning nested content —
- * blocks are tracked at the top level only (ADR-002).
+ * Makes a placeholder of the same kind as `node`: the marker plus a preview of the original text (ADR-006).
+ * It keeps cheap structure, such as heading depth, list type, and code language. It does not copy nested
+ * content, because blocks are top-level only (ADR-002).
  */
 export function placeholderFor(node: RootContent): RootContent {
   switch (node.type) {
@@ -125,16 +120,13 @@ export function placeholderFor(node: RootContent): RootContent {
   }
 }
 
-/** True iff `node`'s text still starts with the untranslated marker. */
+/** True when the text of `node` starts with the marker. */
 export function isUntranslated(node: RootContent): boolean {
   const text = node.type === "code" ? node.value : nodeToString(node);
   return text.startsWith(PLACEHOLDER_MARKER);
 }
 
-/**
- * Content-derived progress: how many blocks are untranslated vs. total.
- * Excludes a block kind with no text.
- */
+/** Counts translated blocks and all blocks. Dividers have no text, so it skips them. */
 export function translationProgress(markdown: string): { translated: number; total: number } {
   const nodes = parseBlocks(markdown).filter((node) => node.type !== "thematicBreak");
   const translated = nodes.filter((node) => !isUntranslated(node)).length;

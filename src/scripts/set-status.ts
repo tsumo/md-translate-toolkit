@@ -1,17 +1,11 @@
 /**
- * Sets block status within a manifest entry. Status is otherwise a human
- * judgment call (ADR-010) — the one thing enforced here is that
- * "complete"/"verified" can't be claimed for a block that still holds a
- * placeholder, since those two states are strong claims other tooling and
- * readers will trust.
+ * Sets the status of blocks in a manifest entry. A person decides the status (ADR-010). The command enforces
+ * one rule: a block with a placeholder cannot be complete or verified (ADR-017).
  *
  * Usage: md-translate set-status [<path>] <status> [--block <index>] [--comment "..."]
- *   <path> is the original_path, e.g. "reviewed/Some File.md". In a
- *   terminal, omitting <path> opens a document picker instead.
- *   No --block: applies to every block (the common case — a reviewer
- *   finishing a whole file marks it verified in one shot).
- *   --block <index>: applies to just that one block (flagging a single
- *   suspect paragraph, or fixing one after review).
+ *   <path> is the original_path, such as "reviewed/Some File.md". In a terminal, a picker opens without it.
+ *   No --block: all blocks change. A reviewer uses this to verify a whole file.
+ *   --block <index>: only that block changes.
  */
 import { readFileSync } from "node:fs";
 import { parseArgs } from "node:util";
@@ -32,7 +26,7 @@ export async function runSetStatus(argv: string[]): Promise<void> {
 
   const config = await loadConfig(values.config);
 
-  // One positional given means it's <status>, with <path> left for the picker below.
+  // One argument is the status. The picker gets the path.
   const [path, status] = positionals.length === 1 ? [undefined, positionals[0]] : positionals;
   if (!status) {
     console.error(USAGE);

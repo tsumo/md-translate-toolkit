@@ -1,4 +1,4 @@
-/** Derives a document's file-level status from its blocks. Never stored (ADR-010). */
+/** Status rules for blocks and documents (ADR-010, ADR-017). The toolkit never stores document status. */
 import type { RootContent } from "mdast";
 import { truncatedList } from "./diff-upstream.js";
 import { isUntranslated, parseBlocks, translationProgress } from "./split-blocks.js";
@@ -26,12 +26,9 @@ export function deriveFileStatus(
 }
 
 /**
- * Validates and applies a status change to one or more blocks of `entry`,
- * in memory — the caller writes the manifest back only once this returns
- * `ok: true`. Shared by `set-status.ts` (CLI) and the dev server's
- * `/api/status` endpoint (ADR-014: this holds the actual business rules,
- * so neither caller re-implements them; neither the fs write nor any
- * process.exit/console output belongs in here).
+ * Checks a status change and applies it to `entry` in memory. The caller writes the manifest only when this
+ * returns `ok: true`. `set-status` and the dev server share this function (ADR-014), so it writes no files
+ * and prints nothing.
  */
 export function applyBlockStatus(
   entry: ManifestEntry,

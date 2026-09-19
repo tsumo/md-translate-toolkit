@@ -3,7 +3,7 @@ import { describe, it } from "node:test";
 import { diffBlocks, removedOldIndices } from "./diff-upstream.js";
 import type { ContentBlock } from "./split-blocks.js";
 
-/** A minimal ContentBlock fixture — diffBlocks only reads `fingerprint`. */
+/** A minimal block for the tests. `diffBlocks` reads only `fingerprint`. */
 function block(fingerprint: string): ContentBlock {
   return { kind: "paragraph", fingerprint };
 }

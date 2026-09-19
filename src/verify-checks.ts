@@ -1,9 +1,7 @@
 /**
- * Checks manifest entries against their pinned original and translation
- * file: sha256/fingerprint integrity, translation block-kind alignment,
- * and the complete/verified completeness gate. Also cross-checks the
- * manifest/ and translations/ trees against each other (ADR-009, ADR-010).
- * No CLI of its own — `build.ts` calls `verifyAll`.
+ * Checks each manifest entry against its pinned original and its translation: hashes, block kinds, and
+ * completion claims (ADR-009, ADR-017). Also checks that a manifest entry claims every translation file.
+ * `build` calls `verifyAll`.
  */
 
 import { createHash } from "node:crypto";
@@ -23,9 +21,7 @@ export interface CheckResult {
   translationNodes?: RootContent[];
 }
 
-/**
- * Checks `entry` against already-loaded original and translation content.
- */
+/** Checks `entry` against original and translation content that the caller already loaded. */
 export function checkEntry(
   entry: ManifestEntry,
   originalContent: string,
@@ -80,7 +76,7 @@ export function checkEntry(
   return { errors, originalNodes, translationNodes };
 }
 
-/** Every translation file with no manifest entry claiming it. */
+/** Lists the translation files that no manifest entry claims. */
 export async function findOrphanedTranslations(
   entries: ManifestEntry[],
   root: string,
@@ -97,10 +93,7 @@ export interface VerifyAllResult {
   hasErrors: boolean;
 }
 
-/**
- * Loads and checks every manifest at `manifestPaths`, printing an
- * `ok`/`FAIL` line for each as it goes.
- */
+/** Loads and checks each manifest. Prints an `ok` or `FAIL` line for each. */
 export async function verifyAll(
   manifestPaths: string[],
   checkOrphans: boolean,
@@ -133,9 +126,7 @@ export async function verifyAll(
     }
   }
 
-  // A single-document check has only that one path in `entries`. Every
-  // other real, claimed file would show as an orphan. This check needs
-  // every entry loaded to work correctly.
+  // The orphan check needs every entry. With one entry, every other translation file looks orphaned.
   if (checkOrphans) {
     for (const orphan of await findOrphanedTranslations(entries, root, translationsDir)) {
       hasErrors = true;

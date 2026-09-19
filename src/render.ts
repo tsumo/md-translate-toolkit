@@ -1,8 +1,4 @@
-/**
- * Shared HTML rendering core for the local dev server and the static site
- * build: converts blocks to HTML, and renders the page shell, the
- * two-column document body, and the per-document index entry.
- */
+/** HTML rendering for the dev server and the static build: blocks, the page shell, the document body, and the index. */
 import { readFileSync } from "node:fs";
 import type { Root as HastRoot } from "hast";
 import type { Root, RootContent } from "mdast";
@@ -20,17 +16,13 @@ const toHast = unified().use(remarkRehype, { allowDangerousHtml: true }).use(reh
 const stringifyHast = unified().use(rehypeStringify, { allowDangerousHtml: true });
 
 /**
- * This converts a whole document to HTML, one block at a time. Heading
- * IDs need document-wide state for correct dedup. So this function
- * converts the whole tree once. Then it splits the result back into
- * per-block HTML, for the two-column zip.
+ * Converts a document to HTML, one string per block. Heading IDs need the whole document, so this converts
+ * the whole tree once and then splits the result into blocks.
  */
 export function documentToBlockHtml(nodes: RootContent[]): string[] {
   const mdastRoot: Root = { type: "root", children: nodes };
   const hastRoot = toHast.runSync(mdastRoot) as HastRoot;
-  // remark-rehype inserts a whitespace-only text node between each block,
-  // as a formatting separator. Drop these, or block indices no longer
-  // line up with the original block list.
+  // remark-rehype adds blank text nodes between blocks. Drop them, or the block indices shift.
   const blocks = hastRoot.children.filter((child) => child.type !== "text" || child.value.trim() !== "");
   return blocks.map((child) => stringifyHast.stringify({ type: "root", children: [child] }));
 }
@@ -64,7 +56,7 @@ const PAGE_STYLE = `
   footer { margin-top: 2rem; padding-top: 1rem; border-top: 1px solid #eee; color: #888; font-size: 0.8rem; }
 `;
 
-/** The full page shell around `bodyHtml`. `extraBodyHtml` is appended after it, e.g. a live-reload script. */
+/** The page shell around `bodyHtml`. `extraBodyHtml` follows it, such as a live-reload script. */
 export function pageWrapper(title: string, bodyHtml: string, extraBodyHtml = ""): string {
   return `<!doctype html>
 <html><head><meta charset="utf-8"><title>${escapeHtml(title)}</title><style>${PAGE_STYLE}</style></head>
@@ -73,7 +65,7 @@ export function pageWrapper(title: string, bodyHtml: string, extraBodyHtml = "")
 
 type Attribution = Pick<ResolvedConfig, "licenseName" | "licenseUrl">;
 
-/** A link to `path` as it exists in `repo` at `commit`, viewable on GitHub's web UI. */
+/** A GitHub link to `path` in `repo` at `commit`. */
 function githubBlobUrl(repo: string, commit: string, path: string): string {
   return `https://github.com/${repo}/blob/${commit}/${encodePathSegments(path)}`;
 }
@@ -95,10 +87,8 @@ function renderFooter(attribution: Attribution, entry?: ManifestEntry): string {
 }
 
 /**
- * Status badge + set-status form for one block, shown only on the dev
- * server's document page — never in the static build (ADR-016). A plain
- * HTML form with no client JS: submitting it posts to the dev server,
- * which writes the manifest and redirects back to this same page.
+ * The status badge and form of one block. Only the dev server shows it, never the static build (ADR-016).
+ * The form posts to the dev server, which writes the manifest and redirects back to the page.
  */
 function renderStatusForm(originalPath: string, index: number, block: BlockEntry): string {
   const options = VALID_BLOCK_STATUSES.map(
@@ -115,12 +105,9 @@ function renderStatusForm(originalPath: string, index: number, block: BlockEntry
 }
 
 /**
- * The three-column index|original|translation body for one document's
- * page. The index column shows each block's position — the same number
- * `set-status.ts`'s `--block` flag takes (ADR-005). `backHref` is the link
- * back to the index — an absolute `/` for the dev server (always served
- * from the true root), or a path relative to this page's own output file
- * for the static build (served under an unknown base path).
+ * The body of a document page, with three columns: index, original, translation. The index column shows the
+ * block number that `set-status --block` takes. `backHref` links back to the index. It is `/` for the dev
+ * server and a relative path for the static build.
  */
 export function renderDocumentBody(
   backHref: string,
@@ -179,7 +166,7 @@ export function renderIndexPage(
   return pageWrapper("Translations", body, extraBodyHtml);
 }
 
-/** One `<li>` entry for the index page: link, status badge, progress, and any flagged blocks. */
+/** One index entry: link, status badge, progress, and flagged blocks. */
 export function renderIndexItem(
   entry: ManifestEntry,
   progress: { translated: number; total: number },

@@ -1,8 +1,6 @@
 /**
- * This is a local server. For each claimed document, it loads the cached
- * original and the translation file. It splits both files into blocks.
- * It zips the blocks by position. It renders an original and translation
- * two-column HTML page.
+ * Local dev server. It shows the original and the translation of each claimed document side by side, reloads
+ * the page when a file changes, and accepts block status changes.
  *
  * Usage: md-translate dev [--port <number>] [--config <path>]
  */
@@ -26,7 +24,7 @@ function broadcastReload(): void {
   for (const client of liveReloadClients) client.write("data: reload\n\n");
 }
 
-/** This watches a directory. On any change, it calls `onChange` at most once per 200ms. */
+/** Watches a folder. It calls `onChange` at most once per 200 ms. */
 function watchDirectory(dir: string, onChange: () => void): void {
   if (!existsSync(dir)) return;
   let timer: ReturnType<typeof setTimeout> | undefined;
@@ -61,10 +59,8 @@ export async function runDev(argv: string[]): Promise<void> {
   const config = await loadConfig(values.config);
   const attribution = { licenseName: config.licenseName, licenseUrl: config.licenseUrl };
 
-  // Rendered HTML per block for a pinned original, keyed by commit + path.
-  // An original is immutable for its pinned commit, so a cache
-  // entry never goes stale on its own — only a `.cache/originals` change
-  // (a re-fetch after a manifest edit) can invalidate it.
+  // Block HTML of each pinned original, keyed by commit and path. A commit never changes,
+  // so only a change in the originals cache clears an entry.
   const originalHtmlCache = new Map<string, string[]>();
 
   async function renderOriginalHtml(entry: ManifestEntry): Promise<string[]> {

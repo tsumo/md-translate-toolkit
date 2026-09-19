@@ -1,11 +1,7 @@
 #!/usr/bin/env node
 /**
- * Single CLI entry point, and the actual `md-translate` bin. Plain JS,
- * not TypeScript: a shebang alone can't invoke `tsx` reliably once this
- * runs from a globally linked or installed location, so this registers
- * tsx's loader hook itself, then dynamically imports each subcommand's
- * own entry function — a static import would resolve before that
- * registration ever ran.
+ * The `md-translate` entry point. It is plain JavaScript. It registers the `tsx` loader first, then imports
+ * each command. A static import would run before the loader is ready.
  *
  * Usage: md-translate <command> [...args]
  */

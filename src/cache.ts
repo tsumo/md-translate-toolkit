@@ -1,8 +1,4 @@
-/**
- * Local gitignored cache for fetched original files, keyed by commit+path.
- * Safe to cache indefinitely: content is addressed by an immutable commit
- * hash, so a cache hit is always valid.
- */
+/** Local cache for fetched originals, keyed by commit and path. A commit never changes, so a cache hit is always valid. */
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { encodePathSegments } from "./paths.js";
@@ -44,10 +40,7 @@ async function fetchWithRetry(url: string, description: string): Promise<Respons
   throw new Error(`Failed to fetch ${description}: exhausted retries`);
 }
 
-/**
- * Resolves `commitArg` to a commit hash, or the current HEAD of `branch`
- * in `repo` if `commitArg` is not given.
- */
+/** Returns `commitArg`, or the current head commit of `branch` in `repo` when `commitArg` is missing. */
 export async function resolveCommit(repo: string, commitArg: string | undefined, branch = "main"): Promise<string> {
   if (commitArg) return commitArg;
   const url = `https://api.github.com/repos/${repo}/commits/${branch}`;
@@ -59,11 +52,7 @@ export async function resolveCommit(repo: string, commitArg: string | undefined,
   return data.sha;
 }
 
-/**
- * Every Markdown file path in `repo` at `commit`, for a document picker.
- * Not cached to disk: the picker should reflect the tree at the commit
- * about to be pinned, and the list itself is cheap to fetch.
- */
+/** Lists every Markdown file in `repo` at `commit`, for the picker. It is not cached, so the list always matches the commit. */
 export async function fetchRepoTree(repo: string, commit: string): Promise<string[]> {
   const url = `https://api.github.com/repos/${repo}/git/trees/${commit}?recursive=1`;
   const res = await fetchWithRetry(url, `repo tree for ${repo} at ${commit}`);
@@ -74,10 +63,7 @@ export async function fetchRepoTree(repo: string, commit: string): Promise<strin
   return data.tree.filter((entry) => entry.type === "blob" && entry.path.endsWith(".md")).map((entry) => entry.path);
 }
 
-/**
- * Returns `path` as it exists in `repo` at `commit`, reading from the
- * local cache when present and fetching (then caching) otherwise.
- */
+/** Returns the file at `path` in `repo` at `commit`. It reads the local cache first, then fetches and caches the file. */
 export async function fetchOriginal(repo: string, commit: string, path: string, cacheDir: string): Promise<string> {
   const cached = cachePath(cacheDir, commit, path);
   if (existsSync(cached)) {

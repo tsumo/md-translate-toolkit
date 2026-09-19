@@ -1,6 +1,4 @@
-/**
- * Read/write manifest entries with a canonical field order.
- */
+/** Reads and writes manifest entries. The writer always uses the same field order. */
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
 import type { BlockEntry, ManifestEntry } from "./types.js";

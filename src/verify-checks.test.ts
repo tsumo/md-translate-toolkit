@@ -7,7 +7,7 @@ import { checkEntry } from "./verify-checks.js";
 
 const ORIGINAL = "# Heading\n\nA paragraph.\n";
 
-/** A manifest entry whose blocks genuinely match `original`, as add-source.ts would produce. */
+/** A manifest entry whose blocks match `original`, as `add-source` makes it. */
 function entryFor(original: string, overrides: Partial<ManifestEntry> = {}): ManifestEntry {
   const blocks: BlockEntry[] = parseBlocks(original).map((node) => ({
     kind: node.type,
@@ -100,7 +100,7 @@ describe("checkEntry", () => {
     const translation = `${stringifyBlocks([placeholderFor(headingNode)])}\nАбзац.\n`;
     const result = checkEntry(entry, ORIGINAL, translation);
     assert.deepEqual(result.errors, []);
-    // Sanity check that the placeholder text is really there, so the test above proves something.
+    // Check that the placeholder is really there, so the test above proves something.
     assert.ok(stringifyBlocks([placeholderFor(headingNode)]).includes(PLACEHOLDER_MARKER));
   });
 });

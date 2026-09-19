@@ -1,19 +1,13 @@
 /**
- * Diffs a claimed document (or every one) against upstream: fetches the
- * current HEAD (or --commit's SHA) and diffs it against the manifest's
- * current blocks. Read-only by default. --apply applies the diff for
- * real: rewrites the translation file to stay positionally aligned with
- * the new block list, and updates the manifest to match (ADR-008, this
- * is destructive by design).
+ * Compares a claimed document, or all of them, with upstream. It only reports by default. With --apply, it
+ * updates the translation file and the manifest (ADR-008).
  *
  * Usage: md-translate pull-updates [<path>] [--commit <sha>] [--apply]
- *   No <path>: every claimed document, for both the report and --apply.
- *     In a terminal, omitting <path> opens a document picker instead,
- *     offering "All documents" unless --commit is also given.
- *   --commit <sha>: diff against this commit instead of upstream HEAD.
- *     Requires <path> — one commit doesn't mean anything applied across
- *     many different files.
- *   --apply: apply the diff instead of only reporting it.
+ *   No <path>: all claimed documents. In a terminal, a picker opens instead, with an "All documents" choice
+ *     unless --commit is set.
+ *   --commit <sha>: compare with this commit, not the branch head. It needs <path>, because one commit does
+ *     not fit many files.
+ *   --apply: apply the changes, not only report them.
  */
 import { createHash } from "node:crypto";
 import { readFileSync, writeFileSync } from "node:fs";
@@ -35,7 +29,7 @@ async function resolvePath(
 ): Promise<string | undefined> {
   if (positionals[0]) return positionals[0];
   if (!canPrompt()) return undefined;
-  // --commit needs one real document, never "all documents" — --apply doesn't.
+  // --commit needs one document, never all documents.
   return values.commit !== undefined
     ? pickClaimedPath({ includeAll: false }, config.root, config.manifestDir)
     : pickClaimedPath({ includeAll: true }, config.root, config.manifestDir);

@@ -1,10 +1,7 @@
 /**
- * The one command that takes a fresh clone to a working static site:
- * fetches every pinned original into the local cache, validates every
- * manifest file's shape, then checks each one's checksum, block
- * alignment, and translation completeness (ADR-009, ADR-010). Any
- * failure aborts before anything under `/site/` is touched. Same
- * rendering core as the local dev server.
+ * Builds the static site. It fetches every pinned original, checks the shape of each manifest, then checks
+ * hashes, block alignment, and completion claims (ADR-009, ADR-017). Any failure stops the build before the
+ * site folder changes. It uses the same rendering code as the dev server.
  *
  * Usage: md-translate build [--config <path>]
  */
@@ -37,9 +34,8 @@ function buildDocumentPage(
   translationNodes: RootContent[],
 ): void {
   const outPath = outputPathFor(config, entry);
-  // A document page can sit several directories deep (mirroring `original_path`), and the
-  // site is served from an unknown base path (e.g. a GitHub Pages project subpath). So the
-  // link back to the index is relative to this page's own file, not an absolute `/`.
+  // A page can sit in nested folders, and the site can be served from any base path.
+  // So the link to the index is relative to this page.
   const backHref = relative(dirname(outPath), join(siteRoot(config), "index.html"));
   const originalHtml = documentToBlockHtml(originalNodes);
   const page = renderDocumentPage(entry, originalHtml, translationNodes, backHref, {
@@ -75,7 +71,7 @@ async function buildIndexPage(config: ResolvedConfig, entries: ManifestEntry[]):
   writeFileSync(join(siteRoot(config), "index.html"), renderIndexPage(entries, attribution, "", staleness));
 }
 
-/** Validates every manifest file's shape, printing an `ok`/`FAIL` line for each. Returns whether any failed. */
+/** Checks the shape of each manifest and prints `ok` or `FAIL`. Returns true when any check fails. */
 function checkManifestShapes(config: ResolvedConfig, manifestPaths: string[]): boolean {
   let hasErrors = false;
   for (const { path, errors } of validateManifestShape(manifestPaths)) {
@@ -97,8 +93,7 @@ export async function runBuild(argv: string[]): Promise<void> {
 
   const manifestPaths = await globManifestPaths(config.root, config.manifestDir);
 
-  // Shape first: a malformed manifest file would otherwise crash the content
-  // checks below with a confusing error instead of Ajv's clear one.
+  // Check the shape first. A malformed manifest would crash the content checks with a confusing error.
   if (checkManifestShapes(config, manifestPaths)) process.exit(1);
 
   const { entries, results, hasErrors } = await verifyAll(

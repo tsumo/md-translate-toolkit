@@ -15,27 +15,20 @@ export interface Config {
     cacheDir?: string;
   };
   upstream?: {
-    /**
-     * The upstream repo `add-source` claims a new document from by
-     * default, e.g. `"owner/repo"`. No default — required to run
-     * `add-source`.
-     */
+    /** The upstream repository that `add-source` uses, such as `"owner/repo"`. `add-source` needs it. */
     defaultRepo?: string;
-    /** The branch HEAD resolves against when `add-source` gets no `--commit`. Default: `"main"`. */
+    /** The branch that `add-source` uses when it gets no `--commit`. Default: `"main"`. */
     defaultBranch?: string;
   };
   attribution?: {
-    /**
-     * Shown in the generated site's footer, e.g. `"CC BY-SA 4.0"`. Leave
-     * this and `licenseUrl` both unset to skip the license line entirely.
-     */
+    /** The license name for the site footer, such as `"CC BY-SA 4.0"`. The footer shows the license only when the name and the URL are both set. */
     licenseName?: string;
     licenseUrl?: string;
   };
 }
 
 export interface ResolvedConfig {
-  /** The directory the config was loaded from — the base every relative path in this project resolves against. */
+  /** The folder of the config file. Relative paths start here. */
   root: string;
   manifestDir: string;
   translationsDir: string;

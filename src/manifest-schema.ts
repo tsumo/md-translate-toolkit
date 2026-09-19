@@ -1,9 +1,6 @@
 /**
- * Validates manifest/**\/*.json files against the JSON Schema generated
- * from `ManifestEntry`. Generated fresh on every run rather than checked
- * in, so there's one source of truth for the shape. No CLI of its own —
- * `build.ts` calls `validateManifestShape` before trusting any entry's
- * content (ADR-014).
+ * Checks manifest files against a JSON Schema that the toolkit generates from `ManifestEntry` on each run.
+ * The type is the only source of truth for the shape. `build` calls this before it trusts any entry (ADR-014).
  */
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -18,7 +15,7 @@ export interface SchemaCheckResult {
   errors: string[];
 }
 
-/** Validates every manifest file at `manifestPaths` against `ManifestEntry`'s shape. */
+/** Checks each manifest file against the `ManifestEntry` shape. */
 export function validateManifestShape(manifestPaths: string[]): SchemaCheckResult[] {
   const schema = createGenerator({
     path: join(PACKAGE_ROOT, "types.ts"),

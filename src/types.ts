@@ -1,36 +1,29 @@
-/**
- * Types for the manifest format. See DECISIONS.md for the rationale
- * behind each field (ADR-001 commit pinning, ADR-005 linking mechanism,
- * ADR-010 status, ADR-011 fingerprint algorithm).
- */
+/** Types for the manifest format. DECISIONS.md gives the reasons for them. */
 
-/** A block's human-set status (ADR-010). */
+/** The status of a block. A person sets it (ADR-010). */
 export type BlockStatus = "in-progress" | "complete" | "verified" | "needs-attention";
 
-/**
- * A block's kind and content fingerprint. A block's position (ADR-005) is
- * its index in `ManifestEntry.blocks`, not a field stored here.
- */
+/** The kind and fingerprint of a block. Its position is its index in `ManifestEntry.blocks` (ADR-005). */
 export interface BlockEntry {
-  /** Top-level Markdown AST node type (heading, paragraph, list, table, etc.). */
+  /** Top-level Markdown node type, such as heading or paragraph. */
   kind: string;
-  /** sha256 of the block's normalized re-serialization, truncated to 16 hex chars. */
+  /** Short hash of the normalized text of the block (ADR-011). */
   fingerprint: string;
   status: BlockStatus;
   status_comment?: string;
 }
 
-/** A document's status, derived from its blocks. */
+/** The status of a document. The toolkit derives it from the blocks. */
 export type TranslationStatus = "not-started" | "in-progress" | "complete" | "verified" | "needs-attention";
 
-/** One manifest entry: links a translation file to a pinned upstream original. */
+/** Links a translation file to a pinned upstream original. */
 export interface ManifestEntry {
   original_path: string;
   source_repo: string;
   source_commit: string;
   source_sha256: string;
   translation_path: string;
-  /** ISO date (YYYY-MM-DD) this file was last checked against upstream. */
+  /** Date (YYYY-MM-DD) of the last check against upstream. */
   last_synced: string;
   blocks: BlockEntry[];
 }

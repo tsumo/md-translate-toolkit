@@ -4,32 +4,28 @@ import { search } from "@inquirer/prompts";
 import { fetchRepoTree } from "./cache.js";
 import { globManifestPaths, originalPathFromManifestPath } from "./paths.js";
 
-/** True iff stdin and stdout are both a real terminal, so a prompt can run. */
+/** True when stdin and stdout are both a real terminal, so a prompt can run. */
 export function canPrompt(): boolean {
   return process.stdin.isTTY === true && process.stdout.isTTY === true;
 }
 
-/** Every already-claimed document's `original_path`, sorted. */
+/** The `original_path` of each claimed document, sorted. */
 export async function listClaimedPaths(root: string, manifestDir: string): Promise<string[]> {
   const manifestPaths = await globManifestPaths(root, manifestDir);
   return manifestPaths.map((path) => originalPathFromManifestPath(relative(root, path), manifestDir)).sort();
 }
 
-/** Case-insensitive substring filter, for the picker's filter-as-you-type search. */
+/** Case-insensitive filter for the search as you type. */
 function filterByTerm(paths: string[], term: string | undefined): string[] {
   if (!term) return paths;
   const needle = term.toLowerCase();
   return paths.filter((path) => path.toLowerCase().includes(needle));
 }
 
-/** Sentinel value for the "all documents" choice. A real `original_path` is never empty. */
+/** Value of the "all documents" choice. A real `original_path` is never empty. */
 const ALL_DOCUMENTS = "";
 
-/**
- * Prompts for one already-claimed document. `includeAll: true` adds an
- * "all documents" choice, returned as `undefined` — the value these tools
- * already use to mean "don't filter by path".
- */
+/** Asks for one claimed document. With `includeAll: true`, an "all documents" choice returns `undefined`. */
 export async function pickClaimedPath(
   options: { includeAll: true },
   root: string,
@@ -58,13 +54,13 @@ export async function pickClaimedPath(
   return choice === ALL_DOCUMENTS ? undefined : choice;
 }
 
-/** Upstream paths not yet claimed by any manifest entry. */
+/** Upstream paths that no manifest entry claims. */
 export function filterUnclaimed(treePaths: string[], claimedPaths: string[]): string[] {
   const claimed = new Set(claimedPaths);
   return treePaths.filter((path) => !claimed.has(path)).sort();
 }
 
-/** Prompts for one upstream Markdown file at `commit`, not yet claimed by any manifest entry. */
+/** Asks for one unclaimed upstream Markdown file at `commit`. */
 export async function pickUpstreamPath(
   repo: string,
   commit: string,
@@ -84,7 +80,7 @@ export async function pickUpstreamPath(
   );
 }
 
-/** Runs an inquirer prompt. Turns a Ctrl+C cancel into a clean exit, not a stack trace. */
+/** Runs a prompt. A Ctrl+C cancel exits cleanly, with no stack trace. */
 async function runPrompt<T>(prompt: () => Promise<T>): Promise<T> {
   try {
     return await prompt();

@@ -1,21 +1,12 @@
 /**
- * End-to-end tests against `fixtures/example/`, the toolkit's own committed
- * example consumer project. Every test copies the fixture into a fresh temp
- * directory first and operates only on the copy — `dev`'s set-status
- * endpoint writes to the manifest on disk, so running straight against the
- * checked-in fixture would leave the working tree dirty after every run.
+ * End-to-end tests on `fixtures/example/`, the example consumer project. Each test works on a fresh copy of the
+ * fixture, because the dev server writes the manifest and would dirty the working tree.
  *
- * Both `build` and `dev` are exercised by spawning the real `cli.js`, not
- * by calling `runBuild`/`runDev` in-process: `loadConfig` always resolves
- * `root` from `process.cwd()`, so a faithful run needs the process's actual
- * cwd set to the fixture copy — and spawning also exercises `cli.js`'s own
- * command dispatch, which nothing else covers.
+ * The tests spawn the real `cli.js` for `build` and `dev`. `loadConfig` reads the folder from `process.cwd()`,
+ * so the process must run in the copy. This also tests the command dispatch in `cli.js`.
  *
- * The copy lands under `.tmp/` inside the repo, not the OS temp directory:
- * Node resolves a `.js` config file's module system by walking up for the
- * nearest `package.json`, and a copy under the repo still finds this
- * project's own `"type": "module"` that way. A copy under the OS temp
- * directory would find no `package.json` at all and fail to load.
+ * The copy goes under `.tmp/` in the repository, not in the OS temp folder. Node finds the module type of the
+ * config file from the nearest `package.json`, and a copy in the OS temp folder has none.
  */
 import assert from "node:assert/strict";
 import { type ChildProcessWithoutNullStreams, execFileSync, spawn } from "node:child_process";
@@ -92,11 +83,9 @@ describe("build against the fixture project", () => {
   });
 
   it("excludes the thematic-break block from Example.md's translation progress count", () => {
-    // Example.md has 7 blocks in its manifest, but thematicBreak has no text
-    // for translationProgress to count (src/split-blocks.ts), so the shown
-    // denominator is 6, of which 5 (every block but the still-placeholder
-    // list) are translated. A regression in that exclusion would silently
-    // shift this to 5/7 or 6/7.
+    // Example.md has 7 blocks, but the divider has no text, so `translationProgress` skips it.
+    // The total is 6, and 5 are translated (all except the list with a placeholder).
+    // A regression in that rule would change this to 5/7 or 6/7.
     assert.match(indexHtml, /5\/6 blocks/);
   });
 });
@@ -135,9 +124,8 @@ describe("dev server against the fixture project", () => {
     assert.match(html, /Заголовок/);
     assert.match(html, /class="untranslated"/);
 
-    // Block index 6 is the thematic break: it has no text at all, so it can
-    // never hold the placeholder marker and must never be flagged
-    // untranslated, regardless of its stored status.
+    // Block 6 is the divider. It has no text, so it never holds the marker.
+    // It is never untranslated, whatever its stored status.
     const thematicBreakRow = html.split('<p class="block-index">6</p>')[1] ?? "";
     const columns = thematicBreakRow.split("</div>").slice(0, 3).join("</div>");
     assert.match(columns, /<hr>/);
@@ -162,9 +150,7 @@ describe("dev server against the fixture project", () => {
   });
 });
 
-// Keeps the pinned commit in this file's assertions honest against the
-// fixture's own manifest files, so a change to one without the other fails
-// loudly here instead of silently drifting.
+// Checks that the commit in this file matches the fixture manifests, so a change to only one fails here.
 describe("fixture project sanity", () => {
   it("uses the same pinned commit in both manifest entries", () => {
     const example = JSON.parse(readFileSync(join(FIXTURE_DIR, "manifest/Example.md.json"), "utf-8"));

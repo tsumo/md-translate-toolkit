@@ -99,7 +99,7 @@ describe("applyResync", () => {
   it("drops a removed block's translation entirely, with no gap in the output", () => {
     const [survivor] = parseBlocks("Survives.");
     const [newSurvivor] = parseBlocks("Survives.");
-    // Old had 2 blocks; new upstream only has 1 (the other was removed).
+    // The old file had 2 blocks. The new upstream has 1, so one block was removed.
     const diff: DiffEntry[] = [{ kind: "unchanged", oldIndex: 0, newIndex: 0 }];
     const { translationNodes, blocks } = applyResync(
       diff,
