@@ -11,7 +11,8 @@
   "files": [
     "src",
     "LICENSE.md",
-    "README.md"
+    "README.md",
+    "tsconfig.json"
   ],
   "scripts": {
     "typecheck": "tsc --noEmit",
