@@ -11,8 +11,10 @@
     "noEmit": true,
     "allowJs": true,
     "checkJs": true,
+    "jsx": "react-jsx",
+    "jsxImportSource": "hono/jsx",
     "types": ["node"]
   },
-  "include": ["**/*.ts", "src/cli.js"],
+  "include": ["**/*.ts", "**/*.tsx", "src/cli.js"],
   "exclude": ["node_modules", "src/client"]
 }

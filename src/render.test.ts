@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { documentToBlockHtml, renderDocumentBody, renderIndexItem } from "./render.js";
+import { documentToBlockHtml } from "./render/blocks.js";
+import { renderDocumentBody } from "./render/document.js";
+import { renderIndexItem } from "./render/index-page.js";
 import { parseBlocks, placeholderFor, stringifyBlocks } from "./split-blocks.js";
 import type { ManifestEntry } from "./types.js";
 

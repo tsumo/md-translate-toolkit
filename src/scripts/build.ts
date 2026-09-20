@@ -15,7 +15,9 @@ import { loadConfig } from "../config.js";
 import { diffAgainstUpstream, hasChanges } from "../diff-upstream.js";
 import { validateManifestShape } from "../manifest-schema.js";
 import { globManifestPaths, sitePathFor } from "../paths.js";
-import { documentToBlockHtml, renderDocumentPage, renderIndexPage } from "../render.js";
+import { documentToBlockHtml } from "../render/blocks.js";
+import { renderDocumentPage } from "../render/document.js";
+import { renderIndexPage } from "../render/index-page.js";
 import type { ManifestEntry } from "../types.js";
 import { verifyAll } from "../verify-checks.js";
 

@@ -20,7 +20,7 @@
       "kind": "blockquote",
       "fingerprint": "2c3117315235142a",
       "status": "needs-attention",
-      "status_comment": "Check the wording of this quote against the house style guide."
+      "status_comment": "Check the wording of this <quote> against the \"house\" style guide."
     },
     {
       "kind": "list",

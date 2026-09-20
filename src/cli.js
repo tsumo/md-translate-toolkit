@@ -5,9 +5,11 @@
  *
  * Usage: md-translate <command> [...args]
  */
+import { fileURLToPath } from "node:url";
 import { register } from "tsx/esm/api";
 
-register();
+// Pin the tsconfig, so a consumer's tsconfig cannot change how the JSX files compile.
+register({ tsconfig: fileURLToPath(new URL("../tsconfig.json", import.meta.url)) });
 
 const { runAddSource } = await import("./scripts/add-source.js");
 const { runBuild } = await import("./scripts/build.js");
