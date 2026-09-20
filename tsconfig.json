@@ -13,5 +13,6 @@
     "checkJs": true,
     "types": ["node"]
   },
-  "include": ["**/*.ts", "src/cli.js"]
+  "include": ["**/*.ts", "src/cli.js"],
+  "exclude": ["node_modules", "src/client"]
 }

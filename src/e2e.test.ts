@@ -14,6 +14,7 @@ import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync } from
 import { createServer } from "node:net";
 import { join } from "node:path";
 import { after, before, describe, it } from "node:test";
+import { Script } from "node:vm";
 
 const CLI_PATH = join(import.meta.dirname, "cli.js");
 const FIXTURE_DIR = join(import.meta.dirname, "../fixtures/example");
@@ -92,6 +93,12 @@ describe("build against the fixture project", () => {
     assert.doesNotMatch(exampleHtml, /<style/);
   });
 
+  it("ships no client script in any built page", () => {
+    const exampleHtml = readFileSync(join(dir, "site/doc/Example.md.html"), "utf-8");
+    assert.doesNotMatch(indexHtml, /client\.js/);
+    assert.doesNotMatch(exampleHtml, /client\.js/);
+  });
+
   it("excludes the thematic-break block from Example.md's translation progress count", () => {
     // Example.md has 7 blocks, but the divider has no text, so `translationProgress` skips it.
     // The total is 6, and 5 are translated (all except the list with a placeholder).
@@ -136,6 +143,18 @@ describe("dev server against the fixture project", () => {
       const html = await (await fetch(`http://localhost:${port}${path}`)).text();
       assert.match(html, /<link rel="stylesheet" href="\/assets\/page\.css">/);
       assert.doesNotMatch(html, /<style/);
+    }
+  });
+
+  it("serves a client bundle that parses, and loads it on the index and document pages", async () => {
+    const js = await fetch(`http://localhost:${port}/assets/client.js`);
+    assert.equal(js.status, 200);
+    assert.match(js.headers.get("content-type") ?? "", /text\/javascript/);
+    const body = await js.text();
+    assert.doesNotThrow(() => new Script(body));
+    for (const path of ["/", "/doc/Example.md.html"]) {
+      const html = await (await fetch(`http://localhost:${port}${path}`)).text();
+      assert.match(html, /<script src="\/assets\/client\.js"/);
     }
   });
 

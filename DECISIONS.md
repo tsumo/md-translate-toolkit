@@ -123,10 +123,10 @@ change how the toolkit tracks translations, so every consumer project gets the s
 
 ### ADR-016: In-browser status changes
 
-The dev server lets a translator change the status of one block in the browser. The built site has no server,
-so it has no status control. The dev server and the `set-status` command share the same rules (ADR-017). Only
-the command changes all blocks at once. The toolkit does not lock the manifest, so two tabs that change it at
-the same time can overwrite each other.
+The dev server lets a translator change the status of one block in the browser. The built site has no server
+and no script, so it has no status control. All interactive code runs only in the dev server. The dev server
+and the `set-status` command share the same rules (ADR-017). Only the command changes all blocks at once. The
+toolkit does not lock the manifest, so two tabs that change it at the same time can overwrite each other.
 
 ### ADR-017: Completion claims must match the content
 

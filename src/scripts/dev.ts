@@ -9,6 +9,7 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 import { createServer } from "node:http";
 import { join } from "node:path";
 import { parseArgs } from "node:util";
+import { buildSync } from "esbuild";
 import { fetchOriginal } from "../cache.js";
 import { loadConfig } from "../config.js";
 import { readManifestEntry, writeManifestEntry } from "../manifest-io.js";
@@ -38,10 +39,22 @@ function watchDirectory(dir: string, onChange: () => void): void {
 const STYLESHEET_PATH = join(import.meta.dirname, "../assets/page.css");
 const STYLESHEET_HREF = "/assets/page.css";
 
-const LIVE_RELOAD_SCRIPT = `<script>
-  const events = new EventSource("/events");
-  events.onmessage = () => location.reload();
-</script>`;
+const CLIENT_ENTRY = join(import.meta.dirname, "../client/main.ts");
+
+/** The client bundle as one classic-script string, built from `src/client/main.ts`. */
+function bundleClient(): string {
+  const result = buildSync({
+    entryPoints: [CLIENT_ENTRY],
+    bundle: true,
+    format: "iife",
+    write: false,
+    target: "es2022",
+  });
+  return result.outputFiles[0].text;
+}
+
+const CLIENT_SCRIPT_HREF = "/assets/client.js";
+const CLIENT_SCRIPT_TAG = `<script src="${CLIENT_SCRIPT_HREF}" defer></script>`;
 
 function readRequestBody(req: IncomingMessage): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -61,6 +74,7 @@ export async function runDev(argv: string[]): Promise<void> {
   });
   const PORT = Number(values.port ?? 4000);
   const config = await loadConfig(values.config);
+  const clientBundle = bundleClient();
   const attribution = { licenseName: config.licenseName, licenseUrl: config.licenseUrl };
 
   // Block HTML of each pinned original, keyed by commit and path. A commit never changes,
@@ -96,12 +110,17 @@ export async function runDev(argv: string[]): Promise<void> {
         res.end(readFileSync(STYLESHEET_PATH));
         return;
       }
+      if (url.pathname === CLIENT_SCRIPT_HREF) {
+        res.writeHead(200, { "content-type": "text/javascript; charset=utf-8" });
+        res.end(clientBundle);
+        return;
+      }
       if (url.pathname === "/") {
         const manifestPaths = await globManifestPaths(config.root, config.manifestDir);
         const entries = manifestPaths.map((manifestPath) => readManifestEntry(manifestPath));
         const page = renderIndexPage(entries, attribution, {
           stylesheetHref: STYLESHEET_HREF,
-          extraBodyHtml: LIVE_RELOAD_SCRIPT,
+          extraBodyHtml: CLIENT_SCRIPT_TAG,
         });
         res.writeHead(200, { "content-type": "text/html; charset=utf-8" });
         res.end(page);
@@ -121,7 +140,7 @@ export async function runDev(argv: string[]): Promise<void> {
           translationNodes,
           "/",
           attribution,
-          { stylesheetHref: STYLESHEET_HREF, extraBodyHtml: LIVE_RELOAD_SCRIPT },
+          { stylesheetHref: STYLESHEET_HREF, extraBodyHtml: CLIENT_SCRIPT_TAG },
           true,
         );
         res.writeHead(200, { "content-type": "text/html; charset=utf-8" });
