@@ -7,6 +7,7 @@
 import { existsSync, readFileSync, watch } from "node:fs";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { createServer } from "node:http";
+import { join } from "node:path";
 import { parseArgs } from "node:util";
 import { fetchOriginal } from "../cache.js";
 import { loadConfig } from "../config.js";
@@ -33,6 +34,9 @@ function watchDirectory(dir: string, onChange: () => void): void {
     timer = setTimeout(onChange, 200);
   });
 }
+
+const STYLESHEET_PATH = join(import.meta.dirname, "../assets/page.css");
+const STYLESHEET_HREF = "/assets/page.css";
 
 const LIVE_RELOAD_SCRIPT = `<script>
   const events = new EventSource("/events");
@@ -87,10 +91,18 @@ export async function runDev(argv: string[]): Promise<void> {
         req.on("close", () => liveReloadClients.delete(res));
         return;
       }
+      if (url.pathname === STYLESHEET_HREF) {
+        res.writeHead(200, { "content-type": "text/css; charset=utf-8" });
+        res.end(readFileSync(STYLESHEET_PATH));
+        return;
+      }
       if (url.pathname === "/") {
         const manifestPaths = await globManifestPaths(config.root, config.manifestDir);
         const entries = manifestPaths.map((manifestPath) => readManifestEntry(manifestPath));
-        const page = renderIndexPage(entries, attribution, LIVE_RELOAD_SCRIPT);
+        const page = renderIndexPage(entries, attribution, {
+          stylesheetHref: STYLESHEET_HREF,
+          extraBodyHtml: LIVE_RELOAD_SCRIPT,
+        });
         res.writeHead(200, { "content-type": "text/html; charset=utf-8" });
         res.end(page);
         return;
@@ -109,7 +121,7 @@ export async function runDev(argv: string[]): Promise<void> {
           translationNodes,
           "/",
           attribution,
-          LIVE_RELOAD_SCRIPT,
+          { stylesheetHref: STYLESHEET_HREF, extraBodyHtml: LIVE_RELOAD_SCRIPT },
           true,
         );
         res.writeHead(200, { "content-type": "text/html; charset=utf-8" });

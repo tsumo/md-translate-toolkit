@@ -82,6 +82,16 @@ describe("build against the fixture project", () => {
     assert.match(indexHtml, /status-not-started/);
   });
 
+  it("links one shared stylesheet from every page, with no inline style block", () => {
+    const css = readFileSync(join(dir, "site/assets/page.css"), "utf-8");
+    assert.ok(css.trim().length > 0);
+    const exampleHtml = readFileSync(join(dir, "site/doc/Example.md.html"), "utf-8");
+    assert.match(indexHtml, /<link rel="stylesheet" href="assets\/page\.css">/);
+    assert.match(exampleHtml, /<link rel="stylesheet" href="\.\.\/assets\/page\.css">/);
+    assert.doesNotMatch(indexHtml, /<style/);
+    assert.doesNotMatch(exampleHtml, /<style/);
+  });
+
   it("excludes the thematic-break block from Example.md's translation progress count", () => {
     // Example.md has 7 blocks, but the divider has no text, so `translationProgress` skips it.
     // The total is 6, and 5 are translated (all except the list with a placeholder).
@@ -115,6 +125,18 @@ describe("dev server against the fixture project", () => {
     assert.match(html, /doc\/Fresh\.md\.html/);
     assert.match(html, /status-needs-attention/);
     assert.match(html, /status-not-started/);
+  });
+
+  it("serves the stylesheet and links it from the index and document pages", async () => {
+    const css = await fetch(`http://localhost:${port}/assets/page.css`);
+    assert.equal(css.status, 200);
+    assert.match(css.headers.get("content-type") ?? "", /text\/css/);
+    assert.ok((await css.text()).trim().length > 0);
+    for (const path of ["/", "/doc/Example.md.html"]) {
+      const html = await (await fetch(`http://localhost:${port}${path}`)).text();
+      assert.match(html, /<link rel="stylesheet" href="\/assets\/page\.css">/);
+      assert.doesNotMatch(html, /<style/);
+    }
   });
 
   it("serves Example.md's document page with the untranslated block highlighted and the thematic break unharmed", async () => {

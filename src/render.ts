@@ -31,47 +31,19 @@ function escapeHtml(text: string): string {
   return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
 
-const PAGE_STYLE = `
-  :root {
-    --status-not-started: #999;
-    --status-in-progress: #3b82f6;
-    --status-complete: #0d9488;
-    --status-verified: #16a34a;
-    --status-needs-attention: #dc2626;
-    --status-stale: #d97706;
-  }
-  body { font-family: system-ui, sans-serif; margin: 0; padding: 1rem 2rem; }
-  .columns { display: grid; grid-template-columns: max-content 1fr 1fr; gap: 0 1.5rem; }
-  @media (max-width: 768px) {
-    .columns { grid-template-columns: 1fr; }
-  }
-  .columns > * { min-width: 0; overflow-wrap: break-word; padding: 0.4rem; }
-  .columns > :nth-child(6n+2), .columns > :nth-child(6n+3) { background: #fafafa; }
-  .columns > .untranslated { background: #fff7e6; }
-  .block-index { color: #999; font-size: 0.8rem; text-align: right; margin: 1rem 0; }
-  .status-pill { border: 0; border-radius: 1rem; padding: 0.1rem 0.5rem; min-width: 1.8rem; font: inherit; color: #fff; cursor: pointer; }
-  .status-dialog { position: fixed; position-area: bottom span-right; position-try-fallbacks: flip-block, flip-inline; margin: 0; padding: 0.8rem; border: 1px solid #ccc; border-radius: 0.4rem; box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15); }
-  .status-dialog form { display: flex; flex-direction: column; gap: 0.4rem; width: 16rem; }
-  .status-dialog .actions { display: flex; gap: 0.4rem; justify-content: flex-end; }
-  .status-error { color: var(--status-needs-attention); font-size: 0.85rem; margin: 0; }
-  h1, h2 { color: #222; }
-  ul.index > li { margin-bottom: 0.6rem; }
-  .badge { display: inline-block; padding: 0.1rem 0.5rem; border-radius: 1rem; font-size: 0.8rem; color: #fff; }
-  .status-not-started { background: var(--status-not-started); }
-  .status-in-progress { background: var(--status-in-progress); }
-  .status-complete { background: var(--status-complete); }
-  .status-verified { background: var(--status-verified); }
-  .status-needs-attention { background: var(--status-needs-attention); }
-  .status-stale { background: var(--status-stale); }
-  .progress { color: #666; font-size: 0.85rem; }
-  ul.flagged { margin: 0.2rem 0 0 1rem; color: var(--status-needs-attention); font-size: 0.85rem; }
-  footer { margin-top: 2rem; padding-top: 1rem; border-top: 1px solid #eee; color: #888; font-size: 0.8rem; }
-`;
+/** Page-level settings that differ between the dev server and the static build. */
+export interface PageOptions {
+  /** The `href` of the shared stylesheet. */
+  stylesheetHref: string;
+  /** HTML that follows the body, such as a live-reload script. */
+  extraBodyHtml?: string;
+}
 
-/** The page shell around `bodyHtml`. `extraBodyHtml` follows it, such as a live-reload script. */
-export function pageWrapper(title: string, bodyHtml: string, extraBodyHtml = ""): string {
+/** The page shell around `bodyHtml`. */
+export function pageWrapper(title: string, bodyHtml: string, options: PageOptions): string {
+  const { stylesheetHref, extraBodyHtml = "" } = options;
   return `<!doctype html>
-<html><head><meta charset="utf-8"><title>${escapeHtml(title)}</title><style>${PAGE_STYLE}</style></head>
+<html><head><meta charset="utf-8"><title>${escapeHtml(title)}</title><link rel="stylesheet" href="${escapeHtml(stylesheetHref)}"></head>
 <body>${bodyHtml}${extraBodyHtml}</body></html>`;
 }
 
@@ -217,7 +189,7 @@ export function renderDocumentPage(
   translationNodes: RootContent[],
   backHref: string,
   attribution: Attribution,
-  extraBodyHtml = "",
+  options: PageOptions,
   editable = false,
 ): string {
   const translationHtml = documentToBlockHtml(translationNodes);
@@ -225,13 +197,13 @@ export function renderDocumentPage(
   const body =
     renderDocumentBody(backHref, originalHtml, translationHtml, translationNodes, editableInfo) +
     renderFooter(attribution, entry);
-  return pageWrapper(entry.original_path, body, extraBodyHtml);
+  return pageWrapper(entry.original_path, body, options);
 }
 
 export function renderIndexPage(
   entries: ManifestEntry[],
   attribution: Attribution,
-  extraBodyHtml = "",
+  options: PageOptions,
   staleness?: Map<string, boolean>,
 ): string {
   const items = entries
@@ -242,7 +214,7 @@ export function renderIndexPage(
     })
     .join("");
   const body = `<h1>Claimed documents</h1><ul class="index">${items}</ul>${renderFooter(attribution)}`;
-  return pageWrapper("Translations", body, extraBodyHtml);
+  return pageWrapper("Translations", body, options);
 }
 
 /** One index entry: link, status badge, progress, and flagged blocks. */

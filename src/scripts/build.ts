@@ -5,7 +5,7 @@
  *
  * Usage: md-translate build [--config <path>]
  */
-import { mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { copyFileSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
 import { parseArgs } from "node:util";
 import type { RootContent } from "mdast";
@@ -23,6 +23,12 @@ function siteRoot(config: ResolvedConfig): string {
   return join(config.root, config.siteDir);
 }
 
+const STYLESHEET_SOURCE = join(import.meta.dirname, "../assets/page.css");
+
+function stylesheetPath(config: ResolvedConfig): string {
+  return join(siteRoot(config), "assets/page.css");
+}
+
 function outputPathFor(config: ResolvedConfig, entry: ManifestEntry): string {
   return join(siteRoot(config), sitePathFor(entry.original_path));
 }
@@ -37,11 +43,16 @@ function buildDocumentPage(
   // A page can sit in nested folders, and the site can be served from any base path.
   // So the link to the index is relative to this page.
   const backHref = relative(dirname(outPath), join(siteRoot(config), "index.html"));
+  const stylesheetHref = relative(dirname(outPath), stylesheetPath(config));
   const originalHtml = documentToBlockHtml(originalNodes);
-  const page = renderDocumentPage(entry, originalHtml, translationNodes, backHref, {
-    licenseName: config.licenseName,
-    licenseUrl: config.licenseUrl,
-  });
+  const page = renderDocumentPage(
+    entry,
+    originalHtml,
+    translationNodes,
+    backHref,
+    { licenseName: config.licenseName, licenseUrl: config.licenseUrl },
+    { stylesheetHref },
+  );
 
   mkdirSync(dirname(outPath), { recursive: true });
   writeFileSync(outPath, page);
@@ -68,7 +79,10 @@ async function computeStaleness(
 async function buildIndexPage(config: ResolvedConfig, entries: ManifestEntry[]): Promise<void> {
   const staleness = await computeStaleness(entries, config.cacheDir, config.defaultBranch);
   const attribution = { licenseName: config.licenseName, licenseUrl: config.licenseUrl };
-  writeFileSync(join(siteRoot(config), "index.html"), renderIndexPage(entries, attribution, "", staleness));
+  writeFileSync(
+    join(siteRoot(config), "index.html"),
+    renderIndexPage(entries, attribution, { stylesheetHref: "assets/page.css" }, staleness),
+  );
 }
 
 /** Checks the shape of each manifest and prints `ok` or `FAIL`. Returns true when any check fails. */
@@ -108,6 +122,8 @@ export async function runBuild(argv: string[]): Promise<void> {
   const root = siteRoot(config);
   rmSync(root, { recursive: true, force: true });
   mkdirSync(root, { recursive: true });
+  mkdirSync(dirname(stylesheetPath(config)), { recursive: true });
+  copyFileSync(STYLESHEET_SOURCE, stylesheetPath(config));
 
   for (let i = 0; i < entries.length; i++) {
     const entry = entries[i];
