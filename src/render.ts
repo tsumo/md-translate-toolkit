@@ -7,6 +7,15 @@ import rehypeStringify from "rehype-stringify";
 import remarkRehype from "remark-rehype";
 import { unified } from "unified";
 import type { ResolvedConfig } from "./config.js";
+import {
+  ANCHOR_PREFIX,
+  ATTR_BLOCK,
+  ATTR_COMMENT,
+  ATTR_ORIGINAL_PATH,
+  ATTR_STATUS,
+  ATTR_STATUSES,
+  PILL_CLASS,
+} from "./dom-names.js";
 import { encodePathSegments, hrefForDoc } from "./paths.js";
 import { isUntranslated, translationProgress } from "./split-blocks.js";
 import { deriveFileStatus, VALID_BLOCK_STATUSES } from "./status.js";
@@ -81,77 +90,13 @@ function pillTitle(block: BlockEntry): string {
 }
 
 /**
- * The status pill of one block. It shows the block number, colored by status. A click opens the shared status
- * dialog. Only the dev server shows it, never the static build (ADR-016).
+ * The status pill of one block. It shows the block number, colored by status. A click opens the status
+ * dialog, which the client builds. Only the dev server shows it, never the static build (ADR-016).
  */
 function renderStatusPill(index: number, block: BlockEntry): string {
   const title = escapeHtml(pillTitle(block));
-  return `<p class="block-index"><button type="button" class="status-pill status-${block.status}" data-block="${index}" data-status="${block.status}" data-comment="${escapeHtml(block.status_comment ?? "")}" style="anchor-name: --pill-${index}" title="${title}" aria-label="Block ${index}, ${title}">${pillLabel(index, block)}</button></p>`;
+  return `<p class="block-index"><button type="button" class="${PILL_CLASS} status-${block.status}" ${ATTR_BLOCK}="${index}" ${ATTR_STATUS}="${block.status}" ${ATTR_COMMENT}="${escapeHtml(block.status_comment ?? "")}" style="anchor-name: ${ANCHOR_PREFIX}${index}" title="${title}" aria-label="Block ${index}, ${title}">${pillLabel(index, block)}</button></p>`;
 }
-
-/** The one status dialog of a page. The script below fills it from the clicked pill. */
-function renderStatusDialog(originalPath: string): string {
-  const options = VALID_BLOCK_STATUSES.map((s) => `<option value="${s}">${s}</option>`).join("");
-  return `<dialog id="status-dialog" class="status-dialog">
-    <form id="status-form">
-      <strong id="status-dialog-title"></strong>
-      <input type="hidden" name="path" value="${escapeHtml(originalPath)}">
-      <input type="hidden" name="block" value="">
-      <select name="status">${options}</select>
-      <input type="text" name="comment" placeholder="comment">
-      <p class="status-error" id="status-error" hidden></p>
-      <div class="actions"><button type="button" id="status-cancel">Cancel</button><button type="submit">Save</button></div>
-    </form>
-  </dialog>`;
-}
-
-/**
- * The script of the status dialog. A click on a pill opens the dialog next to it. CSS anchor positioning places it, so the script only names the anchor. Save posts the form with
- * `fetch`, so the page keeps its scroll position and an error shows in the dialog. The dev server reloads the
- * page after it writes the manifest.
- */
-const STATUS_DIALOG_SCRIPT = `<script>
-  (() => {
-    const dialog = document.getElementById("status-dialog");
-    const form = document.getElementById("status-form");
-    const error = document.getElementById("status-error");
-    const comment = form.elements.comment;
-
-    const syncCommentRequired = () => { comment.required = form.elements.status.value === "needs-attention"; };
-    const close = () => dialog.close();
-
-    document.addEventListener("click", (event) => {
-      const clicked = event.target.closest(".status-pill");
-      if (!clicked) {
-        if (dialog.open && !dialog.contains(event.target)) close();
-        return;
-      }
-      form.elements.block.value = clicked.dataset.block;
-      form.elements.status.value = clicked.dataset.status;
-      comment.value = clicked.dataset.comment;
-      document.getElementById("status-dialog-title").textContent = "Block " + clicked.dataset.block;
-      error.hidden = true;
-      syncCommentRequired();
-      dialog.style.positionAnchor = "--pill-" + clicked.dataset.block;
-      if (!dialog.open) dialog.show();
-      form.elements.status.focus();
-    });
-    document.addEventListener("keydown", (event) => { if (event.key === "Escape" && dialog.open) close(); });
-    document.getElementById("status-cancel").addEventListener("click", close);
-    form.elements.status.addEventListener("change", syncCommentRequired);
-
-    form.addEventListener("submit", async (event) => {
-      event.preventDefault();
-      const response = await fetch("/api/status", { method: "POST", body: new URLSearchParams(new FormData(form)) });
-      if (!response.ok) {
-        error.textContent = await response.text();
-        error.hidden = false;
-        return;
-      }
-      close();
-    });
-  })();
-</script>`;
 
 /**
  * The body of a document page, with three columns: index, original, translation. The index column shows the
@@ -179,8 +124,10 @@ export function renderDocumentBody(
       `<div${rightClass}>${translationHtml[i] ?? ""}</div>`,
     );
   }
-  const dialog = editable ? renderStatusDialog(editable.originalPath) + STATUS_DIALOG_SCRIPT : "";
-  return `<p><a href="${escapeHtml(backHref)}">&larr; all documents</a></p><div class="columns">${rows.join("")}</div>${dialog}`;
+  const columnsData = editable
+    ? ` ${ATTR_ORIGINAL_PATH}="${escapeHtml(editable.originalPath)}" ${ATTR_STATUSES}="${VALID_BLOCK_STATUSES.join(" ")}"`
+    : "";
+  return `<p><a href="${escapeHtml(backHref)}">&larr; all documents</a></p><div class="columns"${columnsData}>${rows.join("")}</div>`;
 }
 
 export function renderDocumentPage(

@@ -93,10 +93,11 @@ describe("build against the fixture project", () => {
     assert.doesNotMatch(exampleHtml, /<style/);
   });
 
-  it("ships no client script in any built page", () => {
+  it("ships no client script, status pill or dialog in any built page", () => {
     const exampleHtml = readFileSync(join(dir, "site/doc/Example.md.html"), "utf-8");
-    assert.doesNotMatch(indexHtml, /client\.js/);
-    assert.doesNotMatch(exampleHtml, /client\.js/);
+    for (const html of [indexHtml, exampleHtml]) {
+      assert.doesNotMatch(html, /client\.js|status-pill|<dialog/);
+    }
   });
 
   it("excludes the thematic-break block from Example.md's translation progress count", () => {
@@ -164,6 +165,9 @@ describe("dev server against the fixture project", () => {
     const html = await res.text();
     assert.match(html, /Заголовок/);
     assert.match(html, /class="untranslated"/);
+    assert.match(html, /<button type="button" class="status-pill [^"]*" data-block="0"/);
+    assert.match(html, /<div class="columns" data-original-path="Example\.md" data-statuses="[^"]+">/);
+    assert.doesNotMatch(html, /<dialog/);
 
     // Block 6 is the divider. It has no text, so it never holds the marker.
     // It is never untranslated, whatever its stored status.

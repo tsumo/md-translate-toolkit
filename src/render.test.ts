@@ -82,7 +82,7 @@ describe("renderDocumentBody", () => {
     );
   });
 
-  it("renders a status pill per block and one shared status dialog when editable info is given", () => {
+  it("renders a status pill per block and the data the client needs when editable info is given", () => {
     const [n1, n2] = parseBlocks("Переведено.\n\nЕще.");
     const editable = {
       originalPath: "reviewed/Simple.md",
@@ -97,10 +97,12 @@ describe("renderDocumentBody", () => {
       /<button type="button" class="status-pill status-complete" data-block="0" data-status="complete"/,
     );
     assert.match(body, /<button type="button" class="status-pill status-verified" data-block="1"/);
-    assert.equal(body.match(/<dialog /g)?.length, 1);
-    assert.equal(body.match(/<form /g)?.length, 1);
-    assert.match(body, /<input type="hidden" name="path" value="reviewed\/Simple\.md">/);
-    assert.match(body, /<option value="needs-attention">needs-attention<\/option>/);
+    assert.match(
+      body,
+      /<div class="columns" data-original-path="reviewed\/Simple\.md" data-statuses="in-progress complete verified needs-attention">/,
+    );
+    assert.match(body, /style="anchor-name: --pill-1"/);
+    assert.doesNotMatch(body, /<dialog|<form|<script/);
   });
 
   it("marks a needs-attention pill with ! and puts the comment in its title", () => {
