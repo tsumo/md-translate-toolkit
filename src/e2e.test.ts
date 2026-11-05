@@ -10,7 +10,7 @@
  */
 import assert from "node:assert/strict";
 import { type ChildProcessWithoutNullStreams, execFileSync, spawn } from "node:child_process";
-import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { createServer } from "node:net";
 import { join } from "node:path";
 import { after, before, describe, it } from "node:test";
@@ -106,6 +106,38 @@ describe("build against the fixture project", () => {
     // A regression in that rule would change this to 5/7 or 6/7.
     assert.match(indexHtml, /5\/6 blocks/);
   });
+
+  it("escapes a needs-attention comment holding <, > and quotes on the built index page", () => {
+    // Example.md block 2 is needs-attention, and its fixture comment holds a literal <quote> and
+    // "house" quotes. The flagged-blocks list must show the escaped forms only.
+    assert.match(indexHtml, /&lt;quote&gt; against the &quot;house&quot; style guide/);
+    assert.doesNotMatch(indexHtml, /<quote>/);
+  });
+});
+
+// The CLI pins the repo tsconfig for tsx (src/cli.js), so a consumer tsconfig with a conflicting
+// `"jsx"` setting cannot change how the JSX pages compile.
+describe("build from a directory with a conflicting tsconfig", () => {
+  let dir: string;
+  let indexHtml: string;
+
+  before(() => {
+    dir = copyFixture();
+    writeFileSync(join(dir, "tsconfig.json"), JSON.stringify({ compilerOptions: { jsx: "react" } }));
+    execFileSync("node", [CLI_PATH, "build"], { cwd: dir });
+    indexHtml = readFileSync(join(dir, "site/index.html"), "utf-8");
+  });
+
+  after(() => {
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  it("still builds correct pages", () => {
+    assert.match(indexHtml, /status-needs-attention/);
+    assert.match(indexHtml, /5\/6 blocks/);
+    assert.match(indexHtml, /&lt;quote&gt;/);
+    assert.doesNotMatch(indexHtml, /<quote>/);
+  });
 });
 
 describe("dev server against the fixture project", () => {
@@ -175,6 +207,16 @@ describe("dev server against the fixture project", () => {
     const columns = thematicBreakRow.split("</div>").slice(0, 3).join("</div>");
     assert.match(columns, /<hr>/);
     assert.doesNotMatch(columns, /class="untranslated"/);
+  });
+
+  it("escapes a needs-attention comment holding <, > and quotes in the pill attributes", async () => {
+    // Example.md block 2's fixture comment holds a literal <quote> and "house" quotes. The title and
+    // data-comment attributes must carry the escaped forms only, or the characters could break them.
+    const res = await fetch(`http://localhost:${port}/doc/Example.md.html`);
+    assert.equal(res.status, 200);
+    const html = await res.text();
+    assert.match(html, /&lt;quote&gt; against the &quot;house&quot; style guide/);
+    assert.doesNotMatch(html, /<quote>/);
   });
 
   it("POST /api/status updates a block and persists it, without touching the checked-in fixture", async () => {

@@ -64,6 +64,12 @@ describe("renderDocumentBody", () => {
     );
   });
 
+  it("embeds rehype block HTML raw, so a <br> inside a paragraph stays a tag", () => {
+    const [n1] = parseBlocks("Line one.<br>\nLine two.");
+    const body = renderDocumentBody("/", ["<p>Line one.<br>\nLine two.</p>"], [], [n1]);
+    assert.match(body, /<p>Line one\.<br>\nLine two\.<\/p>/);
+  });
+
   it("fills a missing side with an empty string when the two lists differ in length", () => {
     const [n1] = parseBlocks("Переведено.");
     const body = renderDocumentBody("/", ["<p>O1</p>", "<p>O2</p>"], ["<p>T1</p>"], [n1]);
