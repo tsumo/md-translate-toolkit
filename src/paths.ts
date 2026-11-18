@@ -1,5 +1,5 @@
 /** Path rules that all commands share: folders from the config, and names that come from `original_path`. */
-import { join } from "node:path";
+import { isAbsolute, join, relative, resolve, sep } from "node:path";
 import { glob } from "glob";
 
 /** Absolute paths of all manifest files, sorted. */
@@ -17,6 +17,18 @@ export async function globTranslationPaths(root: string, translationsDir: string
 /** The manifest path of a document, relative to the project root, such as `manifest/Foo.md.json`. */
 export function manifestPathFor(originalPath: string, manifestDir: string): string {
   return `${manifestDir}/${originalPath}.json`;
+}
+
+/**
+ * True when a client-supplied original path resolves to a manifest file inside `manifestDir`. Unchecked, a
+ * crafted value such as `../secrets` reads or writes files outside the manifest folder. Absolute paths are
+ * always refused.
+ */
+export function isSafeOriginalPath(originalPath: string, manifestDir: string): boolean {
+  if (isAbsolute(originalPath)) return false;
+  const manifestPath = resolve(manifestPathFor(originalPath, manifestDir));
+  const relFromManifestDir = relative(resolve(manifestDir), manifestPath);
+  return !relFromManifestDir.split(sep).includes("..");
 }
 
 /** The reverse of `manifestPathFor`. */

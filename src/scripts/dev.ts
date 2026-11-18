@@ -14,7 +14,7 @@ import { fetchOriginal } from "../cache.js";
 import { loadConfig } from "../config.js";
 import { readManifestEntry, writeManifestEntry } from "../manifest-io.js";
 import { parseBlocks } from "../parse-blocks.js";
-import { globManifestPaths, manifestPathFor } from "../paths.js";
+import { globManifestPaths, isSafeOriginalPath, manifestPathFor } from "../paths.js";
 import { documentToBlockHtml } from "../render/blocks.js";
 import { renderDocumentPage } from "../render/document.js";
 import { renderIndexPage } from "../render/index-page.js";
@@ -132,6 +132,11 @@ export async function runDev(argv: string[]): Promise<void> {
         const originalPath = decodeURIComponent(url.pathname)
           .replace(/^\/doc\//, "")
           .replace(/\.html$/, "");
+        if (!isSafeOriginalPath(originalPath, config.manifestDir)) {
+          res.writeHead(404, { "content-type": "text/plain" });
+          res.end("Not found");
+          return;
+        }
         const manifestPath = manifestPathFor(originalPath, config.manifestDir);
         const entry = readManifestEntry(manifestPath);
         const translationNodes = parseBlocks(readFileSync(entry.translation_path, "utf-8"));
@@ -156,7 +161,12 @@ export async function runDev(argv: string[]): Promise<void> {
         const status = form.get("status") ?? "";
         const comment = form.get("comment") || undefined;
 
-        if (!path || !Number.isInteger(block) || !isValidBlockStatus(status)) {
+        if (
+          !path ||
+          !Number.isInteger(block) ||
+          !isValidBlockStatus(status) ||
+          !isSafeOriginalPath(path, config.manifestDir)
+        ) {
           res.writeHead(400, { "content-type": "text/plain" });
           res.end("Invalid status update request.");
           return;
