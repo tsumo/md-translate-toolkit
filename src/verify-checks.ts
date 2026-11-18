@@ -10,8 +10,9 @@ import { join, relative } from "node:path";
 import type { RootContent } from "mdast";
 import { fetchOriginal } from "./cache.js";
 import { readManifestEntry } from "./manifest-io.js";
+import { parseBlocks } from "./parse-blocks.js";
 import { globTranslationPaths } from "./paths.js";
-import { fingerprintBlock, parseBlocks } from "./split-blocks.js";
+import { fingerprintBlock } from "./split-blocks.js";
 import { isInvalidCompletion } from "./status.js";
 import type { ManifestEntry } from "./types.js";
 

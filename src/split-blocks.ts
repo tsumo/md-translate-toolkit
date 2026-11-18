@@ -1,26 +1,18 @@
 /**
- * Splits Markdown into top-level blocks, fingerprints them (ADR-011), and makes placeholder blocks for
- * translation skeletons (ADR-006). The same code handles originals and translations.
+ * Fingerprints top-level blocks (ADR-011) and makes placeholder blocks for translation skeletons (ADR-006).
+ * The same code handles originals and translations.
  */
 import { createHash } from "node:crypto";
 import type { PhrasingContent, Root, RootContent } from "mdast";
 import { toString as nodeToString } from "mdast-util-to-string";
 import remarkGfm from "remark-gfm";
-import remarkParse from "remark-parse";
 import remarkStringify from "remark-stringify";
 import { unified } from "unified";
+import { parseBlocks } from "./parse-blocks.js";
 import type { BlockEntry } from "./types.js";
 
 /** Block data that comes from content only. It has no status. */
 export type ContentBlock = Pick<BlockEntry, "kind" | "fingerprint">;
-
-const parser = unified().use(remarkParse).use(remarkGfm);
-
-/** Parses Markdown into top-level block nodes. */
-export function parseBlocks(markdown: string): RootContent[] {
-  const tree = parser.parse(markdown) as Root;
-  return tree.children;
-}
 
 // Fixed output options, so cosmetic upstream edits do not change a fingerprint (ADR-011).
 const normalizedStringify = unified()

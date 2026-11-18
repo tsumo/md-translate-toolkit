@@ -13,9 +13,10 @@ import { parseArgs } from "node:util";
 import { fetchOriginal, resolveCommit } from "../cache.js";
 import { loadConfig } from "../config.js";
 import { writeManifestEntry } from "../manifest-io.js";
+import { parseBlocks } from "../parse-blocks.js";
 import { manifestPathFor } from "../paths.js";
 import { canPrompt, pickUpstreamPath } from "../pick-path.js";
-import { fingerprintBlock, parseBlocks, placeholderFor, stringifyBlocks } from "../split-blocks.js";
+import { fingerprintBlock, placeholderFor, stringifyBlocks } from "../split-blocks.js";
 import type { BlockEntry, ManifestEntry } from "../types.js";
 
 export async function runAddSource(argv: string[]): Promise<void> {

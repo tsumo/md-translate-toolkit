@@ -13,11 +13,11 @@ import { buildSync } from "esbuild";
 import { fetchOriginal } from "../cache.js";
 import { loadConfig } from "../config.js";
 import { readManifestEntry, writeManifestEntry } from "../manifest-io.js";
+import { parseBlocks } from "../parse-blocks.js";
 import { globManifestPaths, manifestPathFor } from "../paths.js";
 import { documentToBlockHtml } from "../render/blocks.js";
 import { renderDocumentPage } from "../render/document.js";
 import { renderIndexPage } from "../render/index-page.js";
-import { parseBlocks } from "../split-blocks.js";
 import { applyBlockStatus, isValidBlockStatus } from "../status.js";
 import type { ManifestEntry } from "../types.js";
 

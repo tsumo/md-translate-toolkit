@@ -1,7 +1,8 @@
 /** Status rules for blocks and documents (ADR-010, ADR-017). The toolkit never stores document status. */
 import type { RootContent } from "mdast";
 import { truncatedList } from "./diff-upstream.js";
-import { isUntranslated, parseBlocks, translationProgress } from "./split-blocks.js";
+import { parseBlocks } from "./parse-blocks.js";
+import { isUntranslated, translationProgress } from "./split-blocks.js";
 import type { BlockEntry, BlockStatus, ManifestEntry, TranslationStatus } from "./types.js";
 
 export const VALID_BLOCK_STATUSES: BlockStatus[] = ["in-progress", "complete", "verified", "needs-attention"];

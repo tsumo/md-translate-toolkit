@@ -7,7 +7,8 @@
 import { diffArrays } from "diff";
 import type { RootContent } from "mdast";
 import { fetchOriginal, resolveCommit } from "./cache.js";
-import { type ContentBlock, fingerprintBlock, parseBlocks } from "./split-blocks.js";
+import { parseBlocks } from "./parse-blocks.js";
+import { type ContentBlock, fingerprintBlock } from "./split-blocks.js";
 import type { ManifestEntry } from "./types.js";
 
 export type DiffEntry =

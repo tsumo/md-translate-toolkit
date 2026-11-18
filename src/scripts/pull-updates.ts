@@ -18,9 +18,10 @@ import type { ResolvedConfig } from "../config.js";
 import { loadConfig } from "../config.js";
 import { diffAgainstUpstream, formatDiffReport } from "../diff-upstream.js";
 import { readManifestEntry, writeManifestEntry } from "../manifest-io.js";
+import { parseBlocks } from "../parse-blocks.js";
 import { globManifestPaths, manifestPathFor } from "../paths.js";
 import { canPrompt, pickClaimedPath } from "../pick-path.js";
-import { parseBlocks, stringifyBlocks } from "../split-blocks.js";
+import { stringifyBlocks } from "../split-blocks.js";
 
 async function resolvePath(
   positionals: string[],

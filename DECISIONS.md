@@ -59,10 +59,11 @@ placeholder holds a fixed marker and a short preview of the original text, so a 
 without the original. A block is untranslated while its text starts with the marker. This check is separate
 from the block status (ADR-010).
 
-### ADR-007: Translators edit in their own editor
+### ADR-007: Translators edit in their own editor or in the dev server
 
-A translator edits the translation file in their own editor. A local dev server shows the original and the
-translation side by side in a browser. The server reloads the page when a file changes.
+A translator edits the translation file in their own editor. The dev server can also edit the text of one
+block in the browser. A local dev server shows the original and the translation side by side in a browser.
+The server reloads the page when a file changes.
 
 ### ADR-008: Applying updates changes translations
 

@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { PLACEHOLDER_MARKER, parseBlocks } from "./split-blocks.js";
+import { parseBlocks } from "./parse-blocks.js";
+import { PLACEHOLDER_MARKER } from "./split-blocks.js";
 import {
   applyBlockStatus,
   deriveFileStatus,

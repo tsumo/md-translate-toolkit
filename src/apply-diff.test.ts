@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { applyResync, resolveStatus } from "./apply-diff.js";
 import type { DiffEntry } from "./diff-upstream.js";
-import { parseBlocks } from "./split-blocks.js";
+import { parseBlocks } from "./parse-blocks.js";
 import type { BlockEntry } from "./types.js";
 
 const TODAY = "2026-09-02";
