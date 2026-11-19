@@ -2,7 +2,8 @@
 import type { RootContent } from "mdast";
 import { truncatedList } from "./diff-upstream.js";
 import { parseBlocks } from "./parse-blocks.js";
-import { isUntranslated, translationProgress } from "./split-blocks.js";
+import { isUntranslated } from "./placeholder.js";
+import { translationProgress } from "./split-blocks.js";
 import type { BlockEntry, BlockStatus, ManifestEntry, TranslationStatus } from "./types.js";
 
 export const VALID_BLOCK_STATUSES: BlockStatus[] = ["in-progress", "complete", "verified", "needs-attention"];

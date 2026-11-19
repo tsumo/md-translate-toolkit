@@ -9,10 +9,11 @@ import {
   ATTR_ORIGINAL_PATH,
   ATTR_STATUS,
   ATTR_STATUSES,
+  CELL_CLASS,
   PILL_CLASS,
 } from "../dom-names.js";
 import { encodePathSegments } from "../paths.js";
-import { isUntranslated } from "../split-blocks.js";
+import { isUntranslated } from "../placeholder.js";
 import { VALID_BLOCK_STATUSES } from "../status.js";
 import type { BlockEntry, ManifestEntry } from "../types.js";
 import { documentToBlockHtml } from "./blocks.js";
@@ -108,6 +109,8 @@ function DocumentBody({ backHref, originalHtml, translationHtml, translationNode
     const node = translationNodes[i];
     const untranslated = node && isUntranslated(node);
     const block = editable?.blocks[i];
+    const editableCell = block && block.kind !== "thematicBreak";
+    const cellClass = [untranslated ? "untranslated" : "", editableCell ? CELL_CLASS : ""].filter(Boolean).join(" ");
     rows.push(
       <div>
         {block && block.kind !== "thematicBreak" ? (
@@ -117,7 +120,9 @@ function DocumentBody({ backHref, originalHtml, translationHtml, translationNode
         )}
       </div>,
       <div>{raw(originalHtml[i] ?? "")}</div>,
-      <div class={untranslated ? "untranslated" : undefined}>{raw(translationHtml[i] ?? "")}</div>,
+      <div class={cellClass || undefined} data-block={editableCell ? i : undefined}>
+        {raw(translationHtml[i] ?? "")}
+      </div>,
     );
   }
   const columnsData = editable

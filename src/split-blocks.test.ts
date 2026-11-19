@@ -2,15 +2,8 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { toString as nodeToString } from "mdast-util-to-string";
 import { parseBlocks } from "./parse-blocks.js";
-import {
-  fingerprintBlock,
-  isUntranslated,
-  PLACEHOLDER_MARKER,
-  placeholderFor,
-  splitBlocks,
-  stringifyBlocks,
-  translationProgress,
-} from "./split-blocks.js";
+import { isUntranslated, PLACEHOLDER_MARKER } from "./placeholder.js";
+import { fingerprintBlock, placeholderFor, splitBlocks, stringifyBlocks, translationProgress } from "./split-blocks.js";
 
 describe("fingerprintBlock", () => {
   it("is deterministic for the same content", () => {

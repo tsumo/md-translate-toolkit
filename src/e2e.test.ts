@@ -93,10 +93,10 @@ describe("build against the fixture project", () => {
     assert.doesNotMatch(exampleHtml, /<style/);
   });
 
-  it("ships no client script, status pill or dialog in any built page", () => {
+  it("ships no client script, status pill, editor cell or dialog in any built page", () => {
     const exampleHtml = readFileSync(join(dir, "site/doc/Example.md.html"), "utf-8");
     for (const html of [indexHtml, exampleHtml]) {
-      assert.doesNotMatch(html, /client\.js|status-pill|<dialog/);
+      assert.doesNotMatch(html, /client\.js|status-pill|block-cell|<dialog/);
     }
   });
 
@@ -191,22 +191,25 @@ describe("dev server against the fixture project", () => {
     }
   });
 
-  it("serves Example.md's document page with the untranslated block highlighted and the thematic break unharmed", async () => {
+  it("serves Example.md's document page with editable cells, the untranslated block highlighted, and the thematic break unmarked", async () => {
     const res = await fetch(`http://localhost:${port}/doc/Example.md.html`);
     assert.equal(res.status, 200);
     const html = await res.text();
     assert.match(html, /Заголовок/);
-    assert.match(html, /class="untranslated"/);
+    // Block 3 is the untranslated list: highlighted and openable in the inline block editor.
+    assert.match(html, /class="untranslated block-cell" data-block="3"/);
+    // Block 1 is a plain translated paragraph: openable, without the highlight.
+    assert.match(html, /class="block-cell" data-block="1"/);
     assert.match(html, /<button type="button" class="status-pill [^"]*" data-block="0"/);
     assert.match(html, /<div class="columns" data-original-path="Example\.md" data-statuses="[^"]+">/);
     assert.doesNotMatch(html, /<dialog/);
 
     // Block 6 is the divider. It has no text, so it never holds the marker.
-    // It is never untranslated, whatever its stored status.
+    // It is never untranslated, whatever its stored status, and the editor never opens for it.
     const thematicBreakRow = html.split('<p class="block-index">6</p>')[1] ?? "";
     const columns = thematicBreakRow.split("</div>").slice(0, 3).join("</div>");
     assert.match(columns, /<hr>/);
-    assert.doesNotMatch(columns, /class="untranslated"/);
+    assert.doesNotMatch(columns, /class="untranslated|class="block-cell"/);
   });
 
   it("escapes a needs-attention comment holding <, > and quotes in the pill attributes", async () => {

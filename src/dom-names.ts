@@ -3,6 +3,9 @@
 export const PILL_CLASS = "status-pill";
 export const DIALOG_ID = "status-dialog";
 
+/** On a translation cell that a click opens in the inline block editor. Only the dev server sets it. */
+export const CELL_CLASS = "block-cell";
+
 /** The anchor name of a pill is this prefix and the block number. */
 export const ANCHOR_PREFIX = "--pill-";
 

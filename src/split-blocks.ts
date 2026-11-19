@@ -9,6 +9,7 @@ import remarkGfm from "remark-gfm";
 import remarkStringify from "remark-stringify";
 import { unified } from "unified";
 import { parseBlocks } from "./parse-blocks.js";
+import { isUntranslated, PLACEHOLDER_MARKER } from "./placeholder.js";
 import type { BlockEntry } from "./types.js";
 
 /** Block data that comes from content only. It has no status. */
@@ -42,9 +43,6 @@ export function stringifyBlocks(nodes: RootContent[]): string {
   const root: Root = { type: "root", children: nodes };
   return readableStringify.stringify(root);
 }
-
-/** Marks a block as untranslated. A block is untranslated when its text starts with this (ADR-006). */
-export const PLACEHOLDER_MARKER = "(не переведено)";
 
 const PREVIEW_MAX_CHARS = 80;
 
@@ -110,12 +108,6 @@ export function placeholderFor(node: RootContent): RootContent {
     default:
       throw new Error(`placeholderFor: unsupported block kind "${node.type}" — add support once seen in a real file.`);
   }
-}
-
-/** True when the text of `node` starts with the marker. */
-export function isUntranslated(node: RootContent): boolean {
-  const text = node.type === "code" ? node.value : nodeToString(node);
-  return text.startsWith(PLACEHOLDER_MARKER);
 }
 
 /** Counts translated blocks and all blocks. Dividers have no text, so it skips them. */

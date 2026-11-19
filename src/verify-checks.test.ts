@@ -2,7 +2,8 @@ import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { describe, it } from "node:test";
 import { parseBlocks } from "./parse-blocks.js";
-import { fingerprintBlock, PLACEHOLDER_MARKER, placeholderFor, stringifyBlocks } from "./split-blocks.js";
+import { PLACEHOLDER_MARKER } from "./placeholder.js";
+import { fingerprintBlock, placeholderFor, stringifyBlocks } from "./split-blocks.js";
 import type { BlockEntry, ManifestEntry } from "./types.js";
 import { checkEntry } from "./verify-checks.js";
 

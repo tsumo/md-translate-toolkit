@@ -33,6 +33,23 @@ body {
 .columns > .untranslated {
   background: #fff7e6;
 }
+.columns > .block-cell {
+  cursor: text;
+}
+.inline-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  border: 1px solid #ccc;
+  border-radius: 0.4rem;
+  padding: 0.8rem;
+}
+.inline-editor textarea {
+  field-sizing: content;
+  min-height: 3lh;
+  width: 100%;
+  font-family: ui-monospace, monospace;
+}
 .block-index {
   color: #999;
   font-size: 0.8rem;
@@ -64,7 +81,7 @@ body {
   gap: 0.4rem;
   width: 16rem;
 }
-.status-dialog .actions {
+.actions {
   display: flex;
   gap: 0.4rem;
   justify-content: flex-end;

@@ -1,6 +1,7 @@
 /**
  * Local dev server. It shows the original and the translation of each claimed document side by side, reloads
- * the page when a file changes, and accepts block status changes.
+ * the page when a file changes, accepts block status changes, and hands one block's raw Markdown source to
+ * the inline block editor.
  *
  * Usage: md-translate dev [--port <number>] [--config <path>]
  */
@@ -10,6 +11,7 @@ import { createServer } from "node:http";
 import { join } from "node:path";
 import { parseArgs } from "node:util";
 import { buildSync } from "esbuild";
+import { rawBlockSource } from "../block-source.js";
 import { fetchOriginal } from "../cache.js";
 import { loadConfig } from "../config.js";
 import { readManifestEntry, writeManifestEntry } from "../manifest-io.js";
@@ -152,6 +154,26 @@ export async function runDev(argv: string[]): Promise<void> {
         );
         res.writeHead(200, { "content-type": "text/html; charset=utf-8" });
         res.end(page);
+        return;
+      }
+      if (req.method === "GET" && url.pathname === "/api/block") {
+        const path = url.searchParams.get("path") ?? "";
+        const blockParam = url.searchParams.get("block");
+        const block = blockParam ? Number(blockParam) : Number.NaN;
+        if (!path || !Number.isInteger(block) || block < 0 || !isSafeOriginalPath(path, config.manifestDir)) {
+          res.writeHead(400, { "content-type": "text/plain" });
+          res.end("Invalid block request.");
+          return;
+        }
+        const entry = readManifestEntry(manifestPathFor(path, config.manifestDir));
+        if (!entry.blocks[block]) {
+          res.writeHead(404, { "content-type": "text/plain" });
+          res.end(`No block at index ${block} (file has ${entry.blocks.length} blocks, 0-indexed).`);
+          return;
+        }
+        const markdown = readFileSync(entry.translation_path, "utf-8");
+        res.writeHead(200, { "content-type": "application/json; charset=utf-8" });
+        res.end(JSON.stringify({ text: rawBlockSource(markdown, block), kind: entry.blocks[block].kind }));
         return;
       }
       if (req.method === "POST" && url.pathname === "/api/status") {

@@ -4,16 +4,7 @@
  * error shows in the dialog. The dev server reloads the page after it writes the manifest.
  */
 import { ANCHOR_PREFIX, ATTR_ORIGINAL_PATH, ATTR_STATUSES, DIALOG_ID, PILL_CLASS } from "../dom-names.js";
-
-function element<K extends keyof HTMLElementTagNameMap>(
-  tag: K,
-  props: Partial<HTMLElementTagNameMap[K]> = {},
-  ...children: (Node | string)[]
-): HTMLElementTagNameMap[K] {
-  const el = Object.assign(document.createElement(tag), props);
-  el.append(...children);
-  return el;
-}
+import { element } from "./element.js";
 
 function hiddenInput(name: string, value: string): HTMLInputElement {
   return element("input", { type: "hidden", name, value });
