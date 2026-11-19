@@ -1,11 +1,14 @@
 /**
  * The inline block editor. A click on a translation cell fetches the block's raw Markdown source and its kind
- * from the dev server, then replaces the cell's content with a plain-text Markdown field. Escape or Cancel
- * puts the rendered block back and writes nothing. Only one editor is open at a time: while one is open,
- * clicks on other cells are ignored, so an open edit is never silently discarded.
+ * from the dev server, then replaces the cell's content with a plain-text Markdown field. Save (or
+ * Ctrl/Cmd+Enter) checks the submission rule with the shared validator and posts the text; the server checks
+ * the rule again and any refusal shows inside the editor. Escape or Cancel puts the rendered block back and
+ * writes nothing. Only one editor is open at a time: while one is open, clicks on other cells are ignored,
+ * so an open edit is never silently discarded.
  */
-import { ATTR_BLOCK, ATTR_ORIGINAL_PATH, CELL_CLASS } from "../dom-names.js";
+import { ATTR_BLOCK, ATTR_COMMENT, ATTR_ORIGINAL_PATH, ATTR_STATUS, CELL_CLASS, PILL_CLASS } from "../dom-names.js";
 import { prefillForBlock } from "../placeholder.js";
+import { validateBlockText } from "../validate-block-text.js";
 import { renderFragment } from "./fragment.js";
 
 /** The rendered block of each cell that an editor or an error replaced, so dismissal can put it back. */
@@ -20,17 +23,73 @@ function renderedContent(cell: HTMLElement): Node[] {
   return rendered;
 }
 
-/** Builds the editor that replaces the cell's content. Cancel calls `onDismiss`. */
-function buildEditor(block: string, kind: string, text: string, onDismiss: () => void): DocumentFragment {
+/**
+ * Builds the editor that replaces the cell's content. Cancel calls `onDismiss`; Save and Ctrl/Cmd+Enter send
+ * through `onSend`, which returns the server's rejection reason to show in the editor, or null on success.
+ */
+function buildEditor(
+  block: string,
+  kind: string,
+  text: string,
+  onDismiss: () => void,
+  onSend: (text: string) => Promise<string | null>,
+): DocumentFragment {
+  let field!: HTMLTextAreaElement;
+  let error!: HTMLParagraphElement;
+
+  const showError = (message: string) => {
+    error.textContent = message;
+    error.hidden = false;
+  };
+
+  const submit = async () => {
+    // The client's own check of the shared submission rule, so an invalid edit never leaves the browser.
+    const check = validateBlockText(field.value, kind);
+    if (!check.ok) {
+      showError(check.error);
+      return;
+    }
+    const failure = await onSend(field.value);
+    if (failure) showError(failure);
+    // Saved. No DOM change: the live-reload stream refreshes the page.
+    else error.hidden = true;
+  };
+
   return renderFragment(
-    <div className="inline-editor">
-      <textarea value={prefillForBlock(text)} aria-label={`Block ${block}, ${kind}`} />
+    <form
+      className="inline-editor"
+      onSubmit={(event: Event) => {
+        event.preventDefault();
+        void submit();
+      }}
+    >
+      <textarea
+        value={prefillForBlock(text)}
+        aria-label={`Block ${block}, ${kind}`}
+        ref={(el: HTMLTextAreaElement) => {
+          field = el;
+        }}
+        onKeyDown={(event: KeyboardEvent) => {
+          if ((event.ctrlKey || event.metaKey) && event.key === "Enter") {
+            event.preventDefault();
+            void submit();
+          }
+        }}
+      />
+      <p
+        className="status-error"
+        hidden
+        ref={(el: HTMLParagraphElement) => {
+          error = el;
+        }}
+      />
       <div className="actions">
         <button type="button" onClick={onDismiss}>
           Cancel
         </button>
+        <button type="submit">Save</button>
       </div>
-    </div>,
+    </form>,
   );
 }
 
@@ -64,7 +123,26 @@ export function startInlineEditor(): void {
       }
       const { text, kind } = (await response.json()) as { text: string; kind: string };
       if (dismissOpen !== dismiss) return; // dismissed while the request was in flight
-      cell.replaceChildren(buildEditor(block, kind, text, dismiss));
+      // Status and comment pass through unchanged; the pill rendered them with the page.
+      const pill = document.querySelector<HTMLElement>(`.${PILL_CLASS}[${ATTR_BLOCK}="${block}"]`);
+      const status = pill?.getAttribute(ATTR_STATUS) ?? "";
+      const comment = pill?.getAttribute(ATTR_COMMENT) ?? "";
+      const send = async (edited: string): Promise<string | null> => {
+        try {
+          const body = new URLSearchParams({ path: originalPath, block, text: edited, status, comment });
+          const saveResponse = await fetch("/api/block", { method: "POST", body });
+          if (dismissOpen !== dismiss) return null; // dismissed while the save was in flight
+          if (!saveResponse.ok) {
+            const detail = (await saveResponse.text()).trim();
+            return detail || `The server answered ${saveResponse.status}.`;
+          }
+          return null;
+        } catch (err) {
+          if (dismissOpen !== dismiss) return null; // likewise: leave the restored cell alone
+          return err instanceof Error ? err.message : String(err);
+        }
+      };
+      cell.replaceChildren(buildEditor(block, kind, text, dismiss, send));
       cell.querySelector("textarea")?.focus();
     } catch (err) {
       if (dismissOpen !== dismiss) return; // likewise: leave the restored cell alone

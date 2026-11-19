@@ -236,6 +236,135 @@ describe("dev server against the fixture project", () => {
     const checkedInManifest = JSON.parse(readFileSync(join(FIXTURE_DIR, "manifest/Example.md.json"), "utf-8"));
     assert.equal(checkedInManifest.blocks[1].status, "complete");
   });
+
+  it("POST /api/block writes the text at the block's position and keeps the status", async () => {
+    const translationPath = join(dir, "translations/Example.md");
+    const manifestPath = join(dir, "manifest/Example.md.json");
+    const translationBefore = readFileSync(translationPath, "utf-8");
+    const manifestBefore = JSON.parse(readFileSync(manifestPath, "utf-8"));
+
+    const newText = "Исправленный абзац с новой правкой переводчика.";
+    const res = await fetch(`http://localhost:${port}/api/block`, {
+      method: "POST",
+      headers: { "content-type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        path: "Example.md",
+        block: "1",
+        text: newText,
+        // The editor sends the block's current status back unchanged.
+        status: manifestBefore.blocks[1].status,
+        comment: manifestBefore.blocks[1].status_comment ?? "",
+      }),
+    });
+    assert.equal(res.status, 204);
+
+    // Everything outside block 1's own source stays byte-identical.
+    assert.equal(readFileSync(translationPath, "utf-8"), translationBefore.replace("Переведённый абзац.", newText));
+
+    const manifestAfter = JSON.parse(readFileSync(manifestPath, "utf-8"));
+    assert.deepEqual(manifestAfter.blocks[1], manifestBefore.blocks[1]);
+    assert.deepEqual(manifestAfter.blocks.slice(2), manifestBefore.blocks.slice(2));
+  });
+
+  it("POST /api/block passes a needs-attention block's comment through unchanged", async () => {
+    const translationPath = join(dir, "translations/Example.md");
+    const manifestPath = join(dir, "manifest/Example.md.json");
+    const translationBefore = readFileSync(translationPath, "utf-8");
+    const manifestBefore = JSON.parse(readFileSync(manifestPath, "utf-8"));
+    const comment = manifestBefore.blocks[2].status_comment;
+
+    const res = await fetch(`http://localhost:${port}/api/block`, {
+      method: "POST",
+      headers: { "content-type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        path: "Example.md",
+        block: "2",
+        text: "> Исправленная цитата.",
+        status: "needs-attention",
+        comment,
+      }),
+    });
+    assert.equal(res.status, 204);
+    assert.equal(
+      readFileSync(translationPath, "utf-8"),
+      translationBefore.replace("Переведённая цитата.", "Исправленная цитата."),
+    );
+
+    const manifestAfter = JSON.parse(readFileSync(manifestPath, "utf-8"));
+    assert.equal(manifestAfter.blocks[2].status, "needs-attention");
+    assert.equal(manifestAfter.blocks[2].status_comment, comment);
+  });
+
+  it("POST /api/block rejects invalid submissions and leaves both files untouched", async () => {
+    const translationPath = join(dir, "translations/Example.md");
+    const manifestPath = join(dir, "manifest/Example.md.json");
+    const translationBefore = readFileSync(translationPath, "utf-8");
+    const manifestBefore = readFileSync(manifestPath, "utf-8");
+
+    const rejections: { name: string; body: Record<string, string> }[] = [
+      { name: "two paragraphs", body: { block: "1", text: "Первый абзац.\n\nВторой абзац.", status: "complete" } },
+      { name: "wrong kind", body: { block: "1", text: "# Заголовок вместо абзаца", status: "complete" } },
+      { name: "empty text", body: { block: "1", text: "  \n ", status: "complete" } },
+      { name: "scaffold-only text", body: { block: "2", text: "> ", status: "needs-attention", comment: "note" } },
+      // The text still holds the placeholder marker, so a complete claim must fail.
+      {
+        name: "placeholder as complete",
+        body: { block: "3", text: "* (не переведено) ещё не готово", status: "complete" },
+      },
+    ];
+    for (const { name, body } of rejections) {
+      const res = await fetch(`http://localhost:${port}/api/block`, {
+        method: "POST",
+        headers: { "content-type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({ path: "Example.md", ...body }),
+      });
+      assert.equal(res.status, 400, name);
+      assert.ok((await res.text()).trim().length > 0, `${name}: the rejection carries a reason`);
+    }
+
+    assert.equal(readFileSync(translationPath, "utf-8"), translationBefore);
+    assert.equal(readFileSync(manifestPath, "utf-8"), manifestBefore);
+  });
+
+  it("refuses traversal and malformed block fields on both mutating endpoints", async () => {
+    const translationPath = join(dir, "translations/Example.md");
+    const manifestPath = join(dir, "manifest/Example.md.json");
+    const translationBefore = readFileSync(translationPath, "utf-8");
+    const manifestBefore = readFileSync(manifestPath, "utf-8");
+
+    const saves = [
+      new URLSearchParams({ path: "../outside", block: "1", text: "Абзац.", status: "complete" }),
+      new URLSearchParams({ path: "", block: "1", text: "Абзац.", status: "complete" }),
+      new URLSearchParams({ path: "Example.md", block: "", text: "Абзац.", status: "complete" }),
+      new URLSearchParams({ path: "Example.md", block: "-1", text: "Абзац.", status: "complete" }),
+      new URLSearchParams({ path: "Example.md", block: "nope", text: "Абзац.", status: "complete" }),
+    ];
+    for (const body of saves) {
+      const res = await fetch(`http://localhost:${port}/api/block`, {
+        method: "POST",
+        headers: { "content-type": "application/x-www-form-urlencoded" },
+        body,
+      });
+      assert.equal(res.status, 400, `POST /api/block ${body}`);
+    }
+
+    // A blank block field would silently mean block 0 without the shared guard.
+    const statusUpdates = [
+      new URLSearchParams({ path: "../outside", block: "1", status: "in-progress" }),
+      new URLSearchParams({ path: "Example.md", block: "", status: "in-progress" }),
+    ];
+    for (const body of statusUpdates) {
+      const res = await fetch(`http://localhost:${port}/api/status`, {
+        method: "POST",
+        headers: { "content-type": "application/x-www-form-urlencoded" },
+        body,
+      });
+      assert.equal(res.status, 400, `POST /api/status ${body}`);
+    }
+
+    assert.equal(readFileSync(translationPath, "utf-8"), translationBefore);
+    assert.equal(readFileSync(manifestPath, "utf-8"), manifestBefore);
+  });
 });
 
 // Checks that the commit in this file matches the fixture manifests, so a change to only one fails here.

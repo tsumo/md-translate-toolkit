@@ -1,17 +1,18 @@
 /**
  * Local dev server. It shows the original and the translation of each claimed document side by side, reloads
- * the page when a file changes, accepts block status changes, and hands one block's raw Markdown source to
- * the inline block editor.
+ * the page when a file changes, accepts block status changes, and serves the inline block editor: it hands
+ * a block's raw Markdown source to the browser and writes an edited block back into the translation file
+ * and the manifest.
  *
  * Usage: md-translate dev [--port <number>] [--config <path>]
  */
-import { existsSync, readFileSync, watch } from "node:fs";
+import { existsSync, readFileSync, watch, writeFileSync } from "node:fs";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { createServer } from "node:http";
 import { join } from "node:path";
 import { parseArgs } from "node:util";
 import { buildSync } from "esbuild";
-import { rawBlockSource } from "../block-source.js";
+import { rawBlockSource, replaceBlockSource } from "../block-source.js";
 import { fetchOriginal } from "../cache.js";
 import { loadConfig } from "../config.js";
 import { readManifestEntry, writeManifestEntry } from "../manifest-io.js";
@@ -22,6 +23,7 @@ import { renderDocumentPage } from "../render/document.js";
 import { renderIndexPage } from "../render/index-page.js";
 import { applyBlockStatus, isValidBlockStatus } from "../status.js";
 import type { ManifestEntry } from "../types.js";
+import { validateBlockText } from "../validate-block-text.js";
 
 // Open live-reload connections. A file change writes to every one of these.
 const liveReloadClients = new Set<ServerResponse>();
@@ -73,6 +75,22 @@ function readRequestBody(req: IncomingMessage): Promise<string> {
     req.on("end", () => resolve(body));
     req.on("error", reject);
   });
+}
+
+/**
+ * The path and block fields that all three API endpoints share, checked once: a non-empty safe original path
+ * and a non-negative integer block index. Returns null when either fails, and the caller answers 400.
+ */
+function parseBlockRequest(
+  path: string | null,
+  block: string | null,
+  manifestDir: string,
+): { path: string; block: number } | null {
+  // `Number("")` is 0, so a blank field must become NaN here, or it would silently mean block 0.
+  const trimmed = (block ?? "").trim();
+  const index = trimmed === "" ? Number.NaN : Number(trimmed);
+  if (!path || !Number.isInteger(index) || index < 0 || !isSafeOriginalPath(path, manifestDir)) return null;
+  return { path, block: index };
 }
 
 export async function runDev(argv: string[]): Promise<void> {
@@ -161,47 +179,84 @@ export async function runDev(argv: string[]): Promise<void> {
         return;
       }
       if (req.method === "GET" && url.pathname === "/api/block") {
-        const path = url.searchParams.get("path") ?? "";
-        const blockParam = url.searchParams.get("block");
-        const block = blockParam ? Number(blockParam) : Number.NaN;
-        if (!path || !Number.isInteger(block) || block < 0 || !isSafeOriginalPath(path, config.manifestDir)) {
+        const parsed = parseBlockRequest(
+          url.searchParams.get("path"),
+          url.searchParams.get("block"),
+          config.manifestDir,
+        );
+        if (!parsed) {
           res.writeHead(400, { "content-type": "text/plain" });
           res.end("Invalid block request.");
           return;
         }
-        const entry = readManifestEntry(manifestPathFor(path, config.manifestDir));
-        if (!entry.blocks[block]) {
+        const entry = readManifestEntry(manifestPathFor(parsed.path, config.manifestDir));
+        if (!entry.blocks[parsed.block]) {
           res.writeHead(404, { "content-type": "text/plain" });
-          res.end(`No block at index ${block} (file has ${entry.blocks.length} blocks, 0-indexed).`);
+          res.end(`No block at index ${parsed.block} (file has ${entry.blocks.length} blocks, 0-indexed).`);
           return;
         }
         const markdown = readFileSync(entry.translation_path, "utf-8");
         res.writeHead(200, { "content-type": "application/json; charset=utf-8" });
-        res.end(JSON.stringify({ text: rawBlockSource(markdown, block), kind: entry.blocks[block].kind }));
+        res.end(
+          JSON.stringify({ text: rawBlockSource(markdown, parsed.block), kind: entry.blocks[parsed.block].kind }),
+        );
+        return;
+      }
+      if (req.method === "POST" && url.pathname === "/api/block") {
+        const form = new URLSearchParams(await readRequestBody(req));
+        const parsed = parseBlockRequest(form.get("path"), form.get("block"), config.manifestDir);
+        const status = form.get("status") ?? "";
+        if (!parsed || !isValidBlockStatus(status)) {
+          res.writeHead(400, { "content-type": "text/plain" });
+          res.end("Invalid block save request.");
+          return;
+        }
+        const comment = form.get("comment") || undefined;
+        const text = form.get("text") ?? "";
+        const manifestPath = manifestPathFor(parsed.path, config.manifestDir);
+        const entry = readManifestEntry(manifestPath);
+        const blockEntry = entry.blocks[parsed.block];
+        if (!blockEntry) {
+          res.writeHead(404, { "content-type": "text/plain" });
+          res.end(`No block at index ${parsed.block} (file has ${entry.blocks.length} blocks, 0-indexed).`);
+          return;
+        }
+        // The same submission rule the browser checked before sending, now against the manifest kind.
+        const check = validateBlockText(text, blockEntry.kind);
+        if (!check.ok) {
+          res.writeHead(400, { "content-type": "text/plain" });
+          res.end(check.error);
+          return;
+        }
+        const translationPath = entry.translation_path;
+        const updatedMarkdown = replaceBlockSource(readFileSync(translationPath, "utf-8"), parsed.block, text);
+        // The status applies to the edited text, so the placeholder refusal reads the file as it would become.
+        const result = applyBlockStatus(entry, updatedMarkdown, [parsed.block], status, comment);
+        if (!result.ok) {
+          res.writeHead(400, { "content-type": "text/plain" });
+          res.end(result.error);
+          return;
+        }
+        writeFileSync(translationPath, updatedMarkdown);
+        writeManifestEntry(manifestPath, entry);
+        res.writeHead(204);
+        res.end();
         return;
       }
       if (req.method === "POST" && url.pathname === "/api/status") {
         const form = new URLSearchParams(await readRequestBody(req));
-        const path = form.get("path");
-        const block = Number(form.get("block"));
+        const parsed = parseBlockRequest(form.get("path"), form.get("block"), config.manifestDir);
         const status = form.get("status") ?? "";
-        const comment = form.get("comment") || undefined;
-
-        if (
-          !path ||
-          !Number.isInteger(block) ||
-          !isValidBlockStatus(status) ||
-          !isSafeOriginalPath(path, config.manifestDir)
-        ) {
+        if (!parsed || !isValidBlockStatus(status)) {
           res.writeHead(400, { "content-type": "text/plain" });
           res.end("Invalid status update request.");
           return;
         }
-
-        const manifestPath = manifestPathFor(path, config.manifestDir);
+        const comment = form.get("comment") || undefined;
+        const manifestPath = manifestPathFor(parsed.path, config.manifestDir);
         const entry = readManifestEntry(manifestPath);
         const translationMarkdown = readFileSync(entry.translation_path, "utf-8");
-        const result = applyBlockStatus(entry, translationMarkdown, [block], status, comment);
+        const result = applyBlockStatus(entry, translationMarkdown, [parsed.block], status, comment);
         if (!result.ok) {
           res.writeHead(400, { "content-type": "text/plain" });
           res.end(result.error);
