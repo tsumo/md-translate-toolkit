@@ -6,7 +6,7 @@
  */
 import { ATTR_BLOCK, ATTR_ORIGINAL_PATH, CELL_CLASS } from "../dom-names.js";
 import { prefillForBlock } from "../placeholder.js";
-import { element } from "./element.js";
+import { renderFragment } from "./fragment.js";
 
 /** The rendered block of each cell that an editor or an error replaced, so dismissal can put it back. */
 const renderedByCell = new WeakMap<HTMLElement, Node[]>();
@@ -21,16 +21,16 @@ function renderedContent(cell: HTMLElement): Node[] {
 }
 
 /** Builds the editor that replaces the cell's content. Cancel calls `onDismiss`. */
-function buildEditor(block: string, kind: string, text: string, onDismiss: () => void): HTMLElement {
-  const textarea = element("textarea", { value: prefillForBlock(text) });
-  textarea.setAttribute("aria-label", `Block ${block}, ${kind}`);
-  const cancel = element("button", { type: "button", textContent: "Cancel" });
-  cancel.addEventListener("click", onDismiss);
-  return element(
-    "div",
-    { className: "inline-editor" },
-    textarea,
-    element("div", { className: "actions" }, cancel),
+function buildEditor(block: string, kind: string, text: string, onDismiss: () => void): DocumentFragment {
+  return renderFragment(
+    <div className="inline-editor">
+      <textarea value={prefillForBlock(text)} aria-label={`Block ${block}, ${kind}`} />
+      <div className="actions">
+        <button type="button" onClick={onDismiss}>
+          Cancel
+        </button>
+      </div>
+    </div>,
   );
 }
 
@@ -64,13 +64,12 @@ export function startInlineEditor(): void {
       }
       const { text, kind } = (await response.json()) as { text: string; kind: string };
       if (dismissOpen !== dismiss) return; // dismissed while the request was in flight
-      const editor = buildEditor(block, kind, text, dismiss);
-      cell.replaceChildren(editor);
-      editor.querySelector("textarea")?.focus();
+      cell.replaceChildren(buildEditor(block, kind, text, dismiss));
+      cell.querySelector("textarea")?.focus();
     } catch (err) {
       if (dismissOpen !== dismiss) return; // likewise: leave the restored cell alone
       const message = err instanceof Error ? err.message : String(err);
-      cell.replaceChildren(element("p", { className: "status-error", textContent: message }));
+      cell.replaceChildren(renderFragment(<p className="status-error">{message}</p>));
       dismissOpen = null;
       document.removeEventListener("keydown", onKeydown);
     }

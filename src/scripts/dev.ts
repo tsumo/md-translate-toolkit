@@ -51,8 +51,12 @@ function bundleClient(): string {
     entryPoints: [CLIENT_ENTRY],
     bundle: true,
     format: "iife",
-    write: false,
     target: "es2022",
+    // The client's JSX runs on hono/jsx/dom, whose elements are real DOM nodes — not the server's
+    // string-rendering hono/jsx.
+    jsx: "automatic",
+    jsxImportSource: "hono/jsx/dom",
+    write: false,
   });
   return result.outputFiles[0].text;
 }

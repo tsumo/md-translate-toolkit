@@ -5,9 +5,11 @@
     "moduleResolution": "Bundler",
     "lib": ["ES2022", "DOM"],
     "types": [],
+    "jsx": "react-jsx",
+    "jsxImportSource": "hono/jsx/dom",
     "strict": true,
     "noEmit": true,
     "skipLibCheck": true
   },
-  "include": ["./**/*.ts"]
+  "include": ["./**/*.ts", "./**/*.tsx"]
 }
