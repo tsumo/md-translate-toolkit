@@ -365,6 +365,79 @@ describe("dev server against the fixture project", () => {
     assert.equal(readFileSync(translationPath, "utf-8"), translationBefore);
     assert.equal(readFileSync(manifestPath, "utf-8"), manifestBefore);
   });
+
+  it("POST /api/block applies an edit together with a status change", async () => {
+    const translationPath = join(dir, "translations/Example.md");
+    const manifestPath = join(dir, "manifest/Example.md.json");
+    const translationBefore = readFileSync(translationPath, "utf-8");
+    const manifestBefore = JSON.parse(readFileSync(manifestPath, "utf-8"));
+    assert.notEqual(manifestBefore.blocks[1].status, "complete"); // the save below really changes the status
+
+    const newText = "Ещё раз исправленный абзац.";
+    const res = await fetch(`http://localhost:${port}/api/block`, {
+      method: "POST",
+      headers: { "content-type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        path: "Example.md",
+        block: "1",
+        text: newText,
+        status: "complete",
+        comment: "",
+      }),
+    });
+    assert.equal(res.status, 204);
+    assert.equal(
+      readFileSync(translationPath, "utf-8"),
+      translationBefore.replace("Исправленный абзац с новой правкой переводчика.", newText),
+    );
+
+    const manifestAfter = JSON.parse(readFileSync(manifestPath, "utf-8"));
+    assert.equal(manifestAfter.blocks[1].status, "complete");
+    assert.equal(manifestAfter.blocks[1].status_comment, undefined);
+  });
+
+  it("POST /api/block transitions a comment: kept, cleared, and required", async () => {
+    const translationPath = join(dir, "translations/Example.md");
+    const manifestPath = join(dir, "manifest/Example.md.json");
+    // Block 3 still holds the placeholder. The transitions below replace it, so the placeholder rule
+    // does not block them.
+    const listText = "- Первый пункт.\n- Второй пункт.";
+    const post = (status: string, comment?: string) =>
+      fetch(`http://localhost:${port}/api/block`, {
+        method: "POST",
+        headers: { "content-type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({
+          path: "Example.md",
+          block: "3",
+          text: listText,
+          status,
+          ...(comment === undefined ? {} : { comment }),
+        }),
+      });
+
+    // Kept: needs-attention with a comment stores both.
+    const kept = await post("needs-attention", "check this list");
+    assert.equal(kept.status, 204);
+    const afterKept = JSON.parse(readFileSync(manifestPath, "utf-8"));
+    assert.equal(afterKept.blocks[3].status, "needs-attention");
+    assert.equal(afterKept.blocks[3].status_comment, "check this list");
+
+    // Cleared: the emptied field stores no comment, and an empty string never reaches the manifest.
+    const cleared = await post("in-progress", "");
+    assert.equal(cleared.status, 204);
+    const afterCleared = JSON.parse(readFileSync(manifestPath, "utf-8"));
+    assert.equal(afterCleared.blocks[3].status, "in-progress");
+    assert.equal(afterCleared.blocks[3].status_comment, undefined);
+
+    // Required: needs-attention without a comment is refused and both files stay untouched.
+    const translationBefore = readFileSync(translationPath, "utf-8");
+    const manifestBefore = readFileSync(manifestPath, "utf-8");
+    const required = await post("needs-attention");
+    assert.equal(required.status, 400);
+    assert.match(await required.text(), /comment/);
+    assert.equal(readFileSync(translationPath, "utf-8"), translationBefore);
+    assert.equal(readFileSync(manifestPath, "utf-8"), manifestBefore);
+  });
 });
 
 // Checks that the commit in this file matches the fixture manifests, so a change to only one fails here.

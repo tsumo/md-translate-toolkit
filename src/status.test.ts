@@ -159,4 +159,38 @@ describe("applyBlockStatus", () => {
     assert.equal(manifest.blocks[0].status, "complete");
     assert.equal(manifest.blocks[0].status_comment, undefined);
   });
+
+  it("never stores an empty-string comment, from either the command or the dev server", () => {
+    const manifest = manifestEntry([{ kind: "paragraph", fingerprint: "0000000000000000", status: "complete" }]);
+    const result = applyBlockStatus(manifest, translatedTwoBlocks, [0], "in-progress", "");
+    assert.equal(result.ok, true);
+    assert.equal(manifest.blocks[0].status_comment, undefined);
+  });
+
+  it("treats an empty-string comment as absent for the needs-attention requirement", () => {
+    const manifest = manifestEntry([{ kind: "paragraph", fingerprint: "0000000000000000", status: "complete" }]);
+    const result = applyBlockStatus(manifest, translatedTwoBlocks, [0], "needs-attention", "");
+    assert.equal(result.ok, false);
+    assert.equal(manifest.blocks[0].status, "complete");
+  });
+
+  it("stores a comment trimmed of surrounding whitespace", () => {
+    const manifest = manifestEntry([{ kind: "paragraph", fingerprint: "0000000000000000", status: "complete" }]);
+    const result = applyBlockStatus(manifest, translatedTwoBlocks, [0], "in-progress", "  check this  ");
+    assert.equal(result.ok, true);
+    assert.equal(manifest.blocks[0].status_comment, "check this");
+  });
+
+  it("treats a whitespace-only comment as absent, for storage and for the needs-attention requirement", () => {
+    const manifest = manifestEntry([{ kind: "paragraph", fingerprint: "0000000000000000", status: "complete" }]);
+    const stored = applyBlockStatus(manifest, translatedTwoBlocks, [0], "in-progress", "   ");
+    assert.equal(stored.ok, true);
+    assert.equal(manifest.blocks[0].status_comment, undefined);
+
+    const refused = applyBlockStatus(manifest, translatedTwoBlocks, [0], "needs-attention", "   ");
+    assert.equal(refused.ok, false);
+    // The refused call changed nothing. The status is what the first call left it at.
+    assert.equal(manifest.blocks[0].status, "in-progress");
+    assert.equal(manifest.blocks[0].status_comment, undefined);
+  });
 });

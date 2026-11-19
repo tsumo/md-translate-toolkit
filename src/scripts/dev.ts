@@ -211,7 +211,8 @@ export async function runDev(argv: string[]): Promise<void> {
           res.end("Invalid block save request.");
           return;
         }
-        const comment = form.get("comment") || undefined;
+        // A blank comment means no comment. The shared status logic owns that rule.
+        const comment = form.get("comment") ?? undefined;
         const text = form.get("text") ?? "";
         const manifestPath = manifestPathFor(parsed.path, config.manifestDir);
         const entry = readManifestEntry(manifestPath);
@@ -252,7 +253,7 @@ export async function runDev(argv: string[]): Promise<void> {
           res.end("Invalid status update request.");
           return;
         }
-        const comment = form.get("comment") || undefined;
+        const comment = form.get("comment") ?? undefined;
         const manifestPath = manifestPathFor(parsed.path, config.manifestDir);
         const entry = readManifestEntry(manifestPath);
         const translationMarkdown = readFileSync(entry.translation_path, "utf-8");

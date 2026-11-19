@@ -30,7 +30,8 @@ export function deriveFileStatus(
 /**
  * Checks a status change and applies it to `entry` in memory. The caller writes the manifest only when this
  * returns `ok: true`. `set-status` and the dev server share this function (ADR-014), so it writes no files
- * and prints nothing.
+ * and prints nothing. A comment rides on any status and is stored trimmed, so a blank one means no comment.
+ * needs-attention refuses without one.
  */
 export function applyBlockStatus(
   entry: ManifestEntry,
@@ -45,7 +46,8 @@ export function applyBlockStatus(
     }
   }
 
-  if (status === "needs-attention" && !comment) {
+  const storedComment = comment?.trim() || undefined;
+  if (status === "needs-attention" && !storedComment) {
     return { ok: false, error: '"needs-attention" should have a comment explaining what needs attention.' };
   }
 
@@ -60,7 +62,7 @@ export function applyBlockStatus(
 
   for (const index of targetIndices) {
     entry.blocks[index].status = status;
-    entry.blocks[index].status_comment = comment;
+    entry.blocks[index].status_comment = storedComment;
   }
 
   return { ok: true, fileStatus: deriveFileStatus(entry.blocks, translationProgress(translationMarkdown)) };

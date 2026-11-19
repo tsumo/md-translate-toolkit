@@ -1,12 +1,21 @@
 /**
  * The inline block editor. A click on a translation cell fetches the block's raw Markdown source and its kind
- * from the dev server, then replaces the cell's content with a plain-text Markdown field. Save (or
- * Ctrl/Cmd+Enter) checks the submission rule with the shared validator and posts the text; the server checks
+ * from the dev server, then replaces the cell's content with a plain-text Markdown field. The status select
+ * opens on the block's current status and the comment field on its existing comment. Save (or Ctrl/Cmd+Enter)
+ * checks the submission rule with the shared validator and posts text, status, and comment. The server checks
  * the rule again and any refusal shows inside the editor. Escape or Cancel puts the rendered block back and
- * writes nothing. Only one editor is open at a time: while one is open, clicks on other cells are ignored,
+ * writes nothing. Only one editor is open at a time. While one is open, clicks on other cells are ignored,
  * so an open edit is never silently discarded.
  */
-import { ATTR_BLOCK, ATTR_COMMENT, ATTR_ORIGINAL_PATH, ATTR_STATUS, CELL_CLASS, PILL_CLASS } from "../dom-names.js";
+import {
+  ATTR_BLOCK,
+  ATTR_COMMENT,
+  ATTR_ORIGINAL_PATH,
+  ATTR_STATUS,
+  ATTR_STATUSES,
+  CELL_CLASS,
+  PILL_CLASS,
+} from "../dom-names.js";
 import { prefillForBlock } from "../placeholder.js";
 import { validateBlockText } from "../validate-block-text.js";
 import { renderFragment } from "./fragment.js";
@@ -23,18 +32,28 @@ function renderedContent(cell: HTMLElement): Node[] {
   return rendered;
 }
 
+/** What one open editor is built from, and where a submission goes. */
+interface EditorProps {
+  block: string;
+  kind: string;
+  /** The block's raw Markdown source. `prefillForBlock` decides the field's starting text. */
+  text: string;
+  /** The statuses the select offers, with `currentStatus` preselected. */
+  statuses: string[];
+  currentStatus: string;
+  currentComment: string;
+  onDismiss: () => void;
+  onSend: (text: string, status: string, comment: string) => Promise<string | null>;
+}
+
 /**
- * Builds the editor that replaces the cell's content. Cancel calls `onDismiss`; Save and Ctrl/Cmd+Enter send
+ * Builds the editor that replaces the cell's content. Cancel calls `onDismiss`. Save and Ctrl/Cmd+Enter send
  * through `onSend`, which returns the server's rejection reason to show in the editor, or null on success.
  */
-function buildEditor(
-  block: string,
-  kind: string,
-  text: string,
-  onDismiss: () => void,
-  onSend: (text: string) => Promise<string | null>,
-): DocumentFragment {
+function buildEditor(props: EditorProps): DocumentFragment {
   let field!: HTMLTextAreaElement;
+  let statusSelect!: HTMLSelectElement;
+  let commentInput!: HTMLInputElement;
   let error!: HTMLParagraphElement;
 
   const showError = (message: string) => {
@@ -44,12 +63,12 @@ function buildEditor(
 
   const submit = async () => {
     // The client's own check of the shared submission rule, so an invalid edit never leaves the browser.
-    const check = validateBlockText(field.value, kind);
+    const check = validateBlockText(field.value, props.kind);
     if (!check.ok) {
       showError(check.error);
       return;
     }
-    const failure = await onSend(field.value);
+    const failure = await props.onSend(field.value, statusSelect.value, commentInput.value);
     if (failure) showError(failure);
     // Saved. No DOM change: the live-reload stream refreshes the page.
     else error.hidden = true;
@@ -64,8 +83,8 @@ function buildEditor(
       }}
     >
       <textarea
-        value={prefillForBlock(text)}
-        aria-label={`Block ${block}, ${kind}`}
+        value={prefillForBlock(props.text)}
+        aria-label={`Block ${props.block}, ${props.kind}`}
         ref={(el: HTMLTextAreaElement) => {
           field = el;
         }}
@@ -76,6 +95,25 @@ function buildEditor(
           }
         }}
       />
+      <select
+        aria-label="Status"
+        value={props.currentStatus}
+        ref={(el: HTMLSelectElement) => {
+          statusSelect = el;
+        }}
+      >
+        {props.statuses.map((status) => (
+          <option value={status}>{status}</option>
+        ))}
+      </select>
+      <input
+        type="text"
+        placeholder="comment"
+        value={props.currentComment}
+        ref={(el: HTMLInputElement) => {
+          commentInput = el;
+        }}
+      />
       <p
         className="status-error"
         hidden
@@ -84,7 +122,7 @@ function buildEditor(
         }}
       />
       <div className="actions">
-        <button type="button" onClick={onDismiss}>
+        <button type="button" onClick={props.onDismiss}>
           Cancel
         </button>
         <button type="submit">Save</button>
@@ -97,6 +135,7 @@ export function startInlineEditor(): void {
   const columns = document.querySelector<HTMLElement>(`[${ATTR_ORIGINAL_PATH}]`);
   if (!columns) return;
   const originalPath = columns.getAttribute(ATTR_ORIGINAL_PATH) ?? "";
+  const statuses = (columns.getAttribute(ATTR_STATUSES) ?? "").split(" ").filter(Boolean);
 
   // The dismiss of the open editor, if any. Claimed before the fetch, so a second click during the
   // request cannot open a second editor.
@@ -123,11 +162,11 @@ export function startInlineEditor(): void {
       }
       const { text, kind } = (await response.json()) as { text: string; kind: string };
       if (dismissOpen !== dismiss) return; // dismissed while the request was in flight
-      // Status and comment pass through unchanged; the pill rendered them with the page.
+      // The select and the comment field prefill from the pill the page rendered.
       const pill = document.querySelector<HTMLElement>(`.${PILL_CLASS}[${ATTR_BLOCK}="${block}"]`);
-      const status = pill?.getAttribute(ATTR_STATUS) ?? "";
-      const comment = pill?.getAttribute(ATTR_COMMENT) ?? "";
-      const send = async (edited: string): Promise<string | null> => {
+      const currentStatus = pill?.getAttribute(ATTR_STATUS) ?? "";
+      const currentComment = pill?.getAttribute(ATTR_COMMENT) ?? "";
+      const send = async (edited: string, status: string, comment: string): Promise<string | null> => {
         try {
           const body = new URLSearchParams({ path: originalPath, block, text: edited, status, comment });
           const saveResponse = await fetch("/api/block", { method: "POST", body });
@@ -142,7 +181,9 @@ export function startInlineEditor(): void {
           return err instanceof Error ? err.message : String(err);
         }
       };
-      cell.replaceChildren(buildEditor(block, kind, text, dismiss, send));
+      cell.replaceChildren(
+        buildEditor({ block, kind, text, statuses, currentStatus, currentComment, onDismiss: dismiss, onSend: send }),
+      );
       cell.querySelector("textarea")?.focus();
     } catch (err) {
       if (dismissOpen !== dismiss) return; // likewise: leave the restored cell alone

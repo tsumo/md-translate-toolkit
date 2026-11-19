@@ -51,8 +51,10 @@ export async function runSetStatus(argv: string[]): Promise<void> {
 
   const targetIndices = values.block !== undefined ? [Number(values.block)] : entry.blocks.map((_, i) => i);
 
+  // Trimmed here so the log shows what the manifest will store. The shared logic trims again.
+  const comment = values.comment?.trim() || undefined;
   const translationMarkdown = readFileSync(entry.translation_path, "utf-8");
-  const result = applyBlockStatus(entry, translationMarkdown, targetIndices, status, values.comment);
+  const result = applyBlockStatus(entry, translationMarkdown, targetIndices, status, comment);
   if (!result.ok) {
     console.error(result.error);
     process.exit(1);
@@ -61,6 +63,6 @@ export async function runSetStatus(argv: string[]): Promise<void> {
   writeManifestEntry(manifestPath, entry);
 
   const target = values.block !== undefined ? `block ${values.block}` : `all ${targetIndices.length} blocks`;
-  console.log(`${manifestPath}: ${target} → ${status}${values.comment ? ` ("${values.comment}")` : ""}`);
+  console.log(`${manifestPath}: ${target} → ${status}${comment ? ` ("${comment}")` : ""}`);
   console.log(`File status: ${result.fileStatus}`);
 }
