@@ -9,3 +9,5 @@ they get implemented or proved not worthy after the research.
 - Render color-coded bar for file translation progress.
 
 - stage `CONTEXT.md`, expand it.
+
+- support html in md
