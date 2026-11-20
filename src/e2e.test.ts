@@ -144,8 +144,12 @@ describe("dev server against the fixture project", () => {
   let dir: string;
   let port: number;
   let child: ChildProcessWithoutNullStreams;
+  // Every write below must land in the copy. These baselines let the last test hold the suite to that.
+  const checkedInFiles = ["translations/Example.md", "manifest/Example.md.json"];
+  let checkedInContent: string[] = [];
 
   before(async () => {
+    checkedInContent = checkedInFiles.map((name) => readFileSync(join(FIXTURE_DIR, name), "utf-8"));
     dir = copyFixture();
     port = await getFreePort();
     child = spawn("node", [CLI_PATH, "dev", "--port", String(port)], { cwd: dir });
@@ -220,21 +224,6 @@ describe("dev server against the fixture project", () => {
     const html = await res.text();
     assert.match(html, /&lt;quote&gt; against the &quot;house&quot; style guide/);
     assert.doesNotMatch(html, /<quote>/);
-  });
-
-  it("POST /api/status updates a block and persists it, without touching the checked-in fixture", async () => {
-    const res = await fetch(`http://localhost:${port}/api/status`, {
-      method: "POST",
-      headers: { "content-type": "application/x-www-form-urlencoded" },
-      body: new URLSearchParams({ path: "Example.md", block: "1", status: "verified", comment: "" }),
-    });
-    assert.equal(res.status, 204);
-
-    const copiedManifest = JSON.parse(readFileSync(join(dir, "manifest/Example.md.json"), "utf-8"));
-    assert.equal(copiedManifest.blocks[1].status, "verified");
-
-    const checkedInManifest = JSON.parse(readFileSync(join(FIXTURE_DIR, "manifest/Example.md.json"), "utf-8"));
-    assert.equal(checkedInManifest.blocks[1].status, "complete");
   });
 
   it("POST /api/block writes the text at the block's position and keeps the status", async () => {
@@ -326,7 +315,7 @@ describe("dev server against the fixture project", () => {
     assert.equal(readFileSync(manifestPath, "utf-8"), manifestBefore);
   });
 
-  it("refuses traversal and malformed block fields on both mutating endpoints", async () => {
+  it("refuses traversal and malformed block fields", async () => {
     const translationPath = join(dir, "translations/Example.md");
     const manifestPath = join(dir, "manifest/Example.md.json");
     const translationBefore = readFileSync(translationPath, "utf-8");
@@ -348,20 +337,6 @@ describe("dev server against the fixture project", () => {
       assert.equal(res.status, 400, `POST /api/block ${body}`);
     }
 
-    // A blank block field would silently mean block 0 without the shared guard.
-    const statusUpdates = [
-      new URLSearchParams({ path: "../outside", block: "1", status: "in-progress" }),
-      new URLSearchParams({ path: "Example.md", block: "", status: "in-progress" }),
-    ];
-    for (const body of statusUpdates) {
-      const res = await fetch(`http://localhost:${port}/api/status`, {
-        method: "POST",
-        headers: { "content-type": "application/x-www-form-urlencoded" },
-        body,
-      });
-      assert.equal(res.status, 400, `POST /api/status ${body}`);
-    }
-
     assert.equal(readFileSync(translationPath, "utf-8"), translationBefore);
     assert.equal(readFileSync(manifestPath, "utf-8"), manifestBefore);
   });
@@ -369,27 +344,24 @@ describe("dev server against the fixture project", () => {
   it("POST /api/block applies an edit together with a status change", async () => {
     const translationPath = join(dir, "translations/Example.md");
     const manifestPath = join(dir, "manifest/Example.md.json");
-    const translationBefore = readFileSync(translationPath, "utf-8");
-    const manifestBefore = JSON.parse(readFileSync(manifestPath, "utf-8"));
-    assert.notEqual(manifestBefore.blocks[1].status, "complete"); // the save below really changes the status
+    const currentText = "Исправленный абзац с новой правкой переводчика.";
+    const post = (text: string, status: string) =>
+      fetch(`http://localhost:${port}/api/block`, {
+        method: "POST",
+        headers: { "content-type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({ path: "Example.md", block: "1", text, status, comment: "" }),
+      });
 
+    // The fixture ships block 1 complete. Move it off complete first, so the save below really changes
+    // the status. The text goes through unchanged.
+    const arranged = await post(currentText, "in-progress");
+    assert.equal(arranged.status, 204);
+
+    const translationBefore = readFileSync(translationPath, "utf-8");
     const newText = "Ещё раз исправленный абзац.";
-    const res = await fetch(`http://localhost:${port}/api/block`, {
-      method: "POST",
-      headers: { "content-type": "application/x-www-form-urlencoded" },
-      body: new URLSearchParams({
-        path: "Example.md",
-        block: "1",
-        text: newText,
-        status: "complete",
-        comment: "",
-      }),
-    });
+    const res = await post(newText, "complete");
     assert.equal(res.status, 204);
-    assert.equal(
-      readFileSync(translationPath, "utf-8"),
-      translationBefore.replace("Исправленный абзац с новой правкой переводчика.", newText),
-    );
+    assert.equal(readFileSync(translationPath, "utf-8"), translationBefore.replace(currentText, newText));
 
     const manifestAfter = JSON.parse(readFileSync(manifestPath, "utf-8"));
     assert.equal(manifestAfter.blocks[1].status, "complete");
@@ -437,6 +409,12 @@ describe("dev server against the fixture project", () => {
     assert.match(await required.text(), /comment/);
     assert.equal(readFileSync(translationPath, "utf-8"), translationBefore);
     assert.equal(readFileSync(manifestPath, "utf-8"), manifestBefore);
+  });
+
+  it("leaves the checked-in fixture untouched; every write went to the copy", () => {
+    for (const [i, name] of checkedInFiles.entries()) {
+      assert.equal(readFileSync(join(FIXTURE_DIR, name), "utf-8"), checkedInContent[i], name);
+    }
   });
 });
 

@@ -122,12 +122,13 @@ not export a library for other code. A consumer project sets its folders, its de
 branch, and its license text in a config file. The config controls only identity and environment. It does not
 change how the toolkit tracks translations, so every consumer project gets the same blocks, statuses, and diff.
 
-### ADR-016: In-browser status changes
+### ADR-016: In-browser edits through one inline editor
 
-The dev server lets a translator change the status of one block in the browser. The built site has no server
-and no script, so it has no status control. All interactive code runs only in the dev server. The dev server
-and the `set-status` command share the same rules (ADR-017). Only the command changes all blocks at once. The
-toolkit does not lock the manifest, so two tabs that change it at the same time can overwrite each other.
+The dev server lets a translator edit the text and set the status of one block in the browser, in one inline
+editor. A click on a translation block opens this editor. The built site has no server and no script, so it has
+no editor. All interactive code runs only in the dev server. The dev server and the `set-status` command share
+the same rules (ADR-017). Only the command changes all blocks at once. The toolkit does not lock the manifest,
+so two tabs that change it at the same time can overwrite each other.
 
 ### ADR-017: Completion claims must match the content
 

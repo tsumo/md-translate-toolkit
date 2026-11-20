@@ -244,31 +244,6 @@ export async function runDev(argv: string[]): Promise<void> {
         res.end();
         return;
       }
-      if (req.method === "POST" && url.pathname === "/api/status") {
-        const form = new URLSearchParams(await readRequestBody(req));
-        const parsed = parseBlockRequest(form.get("path"), form.get("block"), config.manifestDir);
-        const status = form.get("status") ?? "";
-        if (!parsed || !isValidBlockStatus(status)) {
-          res.writeHead(400, { "content-type": "text/plain" });
-          res.end("Invalid status update request.");
-          return;
-        }
-        const comment = form.get("comment") ?? undefined;
-        const manifestPath = manifestPathFor(parsed.path, config.manifestDir);
-        const entry = readManifestEntry(manifestPath);
-        const translationMarkdown = readFileSync(entry.translation_path, "utf-8");
-        const result = applyBlockStatus(entry, translationMarkdown, [parsed.block], status, comment);
-        if (!result.ok) {
-          res.writeHead(400, { "content-type": "text/plain" });
-          res.end(result.error);
-          return;
-        }
-
-        writeManifestEntry(manifestPath, entry);
-        res.writeHead(204);
-        res.end();
-        return;
-      }
       res.writeHead(404, { "content-type": "text/plain" });
       res.end("Not found");
     } catch (err) {

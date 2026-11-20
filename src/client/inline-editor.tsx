@@ -148,7 +148,7 @@ export function startInlineEditor(): void {
       dismissOpen = null;
       document.removeEventListener("keydown", onKeydown);
     };
-    // Escape dismisses from anywhere on the page, the way the status dialog's Escape does.
+    // Escape dismisses from anywhere on the page.
     const onKeydown = (event: KeyboardEvent) => {
       if (event.key === "Escape") dismiss();
     };

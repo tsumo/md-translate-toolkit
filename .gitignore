@@ -3,6 +3,7 @@ tsconfig.tsbuildinfo
 
 # OS/editor junk
 /.vscode/
+/.zcode/
 .DS_Store
 Thumbs.db
 *.swp

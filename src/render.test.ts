@@ -110,7 +110,6 @@ describe("renderDocumentBody", () => {
       body,
       /<div class="columns" data-original-path="reviewed\/Simple\.md" data-statuses="in-progress complete verified needs-attention">/,
     );
-    assert.match(body, /style="anchor-name: --pill-1"/);
     assert.doesNotMatch(body, /<dialog|<form|<script/);
   });
 

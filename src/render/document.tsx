@@ -3,7 +3,6 @@ import { raw } from "hono/html";
 import type { RootContent } from "mdast";
 import type { ResolvedConfig } from "../config.js";
 import {
-  ANCHOR_PREFIX,
   ATTR_BLOCK,
   ATTR_COMMENT,
   ATTR_ORIGINAL_PATH,
@@ -68,8 +67,8 @@ function pillTitle(block: BlockEntry): string {
 }
 
 /**
- * The status pill of one block. It shows the block number, colored by status. A click opens the status
- * dialog, which the client builds. Only the dev server shows it, never the static build (ADR-016).
+ * The status pill of one block. It shows the block number, colored by status.
+ * Only the dev server shows it, never the static build (ADR-016).
  */
 function StatusPill({ index, block }: { index: number; block: BlockEntry }) {
   const title = pillTitle(block);
@@ -84,7 +83,6 @@ function StatusPill({ index, block }: { index: number; block: BlockEntry }) {
         type="button"
         class={`${PILL_CLASS} status-${block.status}`}
         {...data}
-        style={`anchor-name: ${ANCHOR_PREFIX}${index}`}
         title={title}
         aria-label={`Block ${index}, ${title}`}
       >
@@ -126,7 +124,10 @@ function DocumentBody({ backHref, originalHtml, translationHtml, translationNode
     );
   }
   const columnsData = editable
-    ? { [ATTR_ORIGINAL_PATH]: editable.originalPath, [ATTR_STATUSES]: VALID_BLOCK_STATUSES.join(" ") }
+    ? {
+        [ATTR_ORIGINAL_PATH]: editable.originalPath,
+        [ATTR_STATUSES]: VALID_BLOCK_STATUSES.join(" "),
+      }
     : {};
   return (
     <>
@@ -142,7 +143,7 @@ function DocumentBody({ backHref, originalHtml, translationHtml, translationNode
 
 /**
  * The body of a document page, with three columns: index, original, translation. The index column shows the
- * block number that `set-status --block` takes. In the dev server, the number is also the status button.
+ * block number that `set-status --block` takes. In the dev server, the number is also a status pill.
  * `backHref` links back to the index. It is `/` for the dev server and a relative path for the static build.
  */
 export function renderDocumentBody(

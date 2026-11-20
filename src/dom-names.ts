@@ -1,13 +1,9 @@
 /** Names that the server markup and the client code share, so the two sides cannot drift apart. */
 
 export const PILL_CLASS = "status-pill";
-export const DIALOG_ID = "status-dialog";
 
 /** On a translation cell that a click opens in the inline block editor. Only the dev server sets it. */
 export const CELL_CLASS = "block-cell";
-
-/** The anchor name of a pill is this prefix and the block number. */
-export const ANCHOR_PREFIX = "--pill-";
 
 export const ATTR_BLOCK = "data-block";
 export const ATTR_STATUS = "data-status";
