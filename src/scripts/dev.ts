@@ -132,12 +132,12 @@ export async function runDev(argv: string[]): Promise<void> {
         return;
       }
       if (url.pathname === STYLESHEET_HREF) {
-        res.writeHead(200, { "content-type": "text/css; charset=utf-8" });
+        res.writeHead(200, { "content-type": "text/css; charset=utf-8", "cache-control": "no-cache" });
         res.end(readFileSync(STYLESHEET_PATH));
         return;
       }
       if (url.pathname === CLIENT_SCRIPT_HREF) {
-        res.writeHead(200, { "content-type": "text/javascript; charset=utf-8" });
+        res.writeHead(200, { "content-type": "text/javascript; charset=utf-8", "cache-control": "no-cache" });
         res.end(clientBundle);
         return;
       }

@@ -309,11 +309,17 @@ ul.index {
   flex: 1;
 }
 .status-pill {
+  /* border-box, or the padding would make even a short label wider than the circle it replaces. */
+  box-sizing: border-box;
+  /* The rail is a flex container: without this it squeezes a long label back into the circle. */
+  flex-shrink: 0;
   display: inline-grid;
   place-content: center;
-  width: 1.75rem;
+  min-width: 1.75rem;
   height: 1.75rem;
-  border-radius: 50%;
+  padding: 0 0.375rem;
+  /* A full radius, not 50%: a long label stretches the pill instead of ellipsing. */
+  border-radius: 999px;
   font-size: 0.75rem;
   font-weight: 600;
   color: var(--surface);
