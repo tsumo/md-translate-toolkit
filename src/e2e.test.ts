@@ -78,9 +78,12 @@ describe("build against the fixture project", () => {
     assert.ok(existsSync(join(dir, "site/doc/Fresh.md.html")));
   });
 
-  it("shows correct status badges on the index page", () => {
+  it("shows correct status chips on the index page", () => {
     assert.match(indexHtml, /status-needs-attention/);
     assert.match(indexHtml, /status-not-started/);
+    // The header summary across both fixture documents: 5 translated of 8 blocks, 1 needs-attention.
+    assert.match(indexHtml, /md-translate/);
+    assert.match(indexHtml, /2 documents · 5 of 8 blocks · 1 needs-attention/);
   });
 
   it("links one shared stylesheet from every page, with no inline style block", () => {
@@ -104,14 +107,14 @@ describe("build against the fixture project", () => {
     // Example.md has 7 blocks, but the divider has no text, so `translationProgress` skips it.
     // The total is 6, and 5 are translated (all except the list with a placeholder).
     // A regression in that rule would change this to 5/7 or 6/7.
-    assert.match(indexHtml, /5\/6 blocks/);
+    assert.match(indexHtml, /5 of 6 blocks translated · 1 needs-attention/);
   });
 
-  it("escapes a needs-attention comment holding <, > and quotes on the built index page", () => {
+  it("summarizes needs-attention as a count on the built index, without the block comment", () => {
     // Example.md block 2 is needs-attention, and its fixture comment holds a literal <quote> and
-    // "house" quotes. The flagged-blocks list must show the escaped forms only.
-    assert.match(indexHtml, /&lt;quote&gt; against the &quot;house&quot; style guide/);
-    assert.doesNotMatch(indexHtml, /<quote>/);
+    // "house" quotes. The card shows the count only, so the comment appears nowhere on the page.
+    assert.match(indexHtml, /1 needs-attention/);
+    assert.doesNotMatch(indexHtml, /<quote>|house/);
   });
 });
 
@@ -134,8 +137,7 @@ describe("build from a directory with a conflicting tsconfig", () => {
 
   it("still builds correct pages", () => {
     assert.match(indexHtml, /status-needs-attention/);
-    assert.match(indexHtml, /5\/6 blocks/);
-    assert.match(indexHtml, /&lt;quote&gt;/);
+    assert.match(indexHtml, /5 of 6 blocks translated/);
     assert.doesNotMatch(indexHtml, /<quote>/);
   });
 });

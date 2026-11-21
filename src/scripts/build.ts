@@ -9,10 +9,8 @@ import { copyFileSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
 import { parseArgs } from "node:util";
 import type { RootContent } from "mdast";
-import { NotFoundError } from "../cache.js";
 import type { ResolvedConfig } from "../config.js";
 import { loadConfig } from "../config.js";
-import { diffAgainstUpstream, hasChanges } from "../diff-upstream.js";
 import { validateManifestShape } from "../manifest-schema.js";
 import { globManifestPaths, sitePathFor } from "../paths.js";
 import { documentToBlockHtml } from "../render/blocks.js";
@@ -60,30 +58,11 @@ function buildDocumentPage(
   writeFileSync(outPath, page);
 }
 
-async function computeStaleness(
-  entries: ManifestEntry[],
-  cacheDir: string,
-  defaultBranch: string,
-): Promise<Map<string, boolean>> {
-  const staleness = new Map<string, boolean>();
-  for (const entry of entries) {
-    try {
-      const { commit, diff } = await diffAgainstUpstream(entry, undefined, cacheDir, defaultBranch);
-      staleness.set(entry.original_path, commit !== entry.source_commit && hasChanges(diff, entry.blocks.length));
-    } catch (err) {
-      const reason = err instanceof NotFoundError ? "not found at upstream HEAD" : `staleness check failed (${err})`;
-      console.error(`${entry.original_path}: ${reason} — skipping staleness check.`);
-    }
-  }
-  return staleness;
-}
-
-async function buildIndexPage(config: ResolvedConfig, entries: ManifestEntry[]): Promise<void> {
-  const staleness = await computeStaleness(entries, config.cacheDir, config.defaultBranch);
+function buildIndexPage(config: ResolvedConfig, entries: ManifestEntry[]): void {
   const attribution = { licenseName: config.licenseName, licenseUrl: config.licenseUrl };
   writeFileSync(
     join(siteRoot(config), "index.html"),
-    renderIndexPage(entries, attribution, { stylesheetHref: "assets/page.css" }, staleness),
+    renderIndexPage(entries, attribution, { stylesheetHref: "assets/page.css" }),
   );
 }
 
@@ -136,6 +115,6 @@ export async function runBuild(argv: string[]): Promise<void> {
     buildDocumentPage(config, entry, originalNodes, translationNodes);
     console.log(`built  ${entry.original_path}`);
   }
-  await buildIndexPage(config, entries);
+  buildIndexPage(config, entries);
   console.log(`built  index (${entries.length} document${entries.length === 1 ? "" : "s"})`);
 }

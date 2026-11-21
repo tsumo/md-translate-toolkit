@@ -9,6 +9,15 @@ export interface PageOptions {
   extraBodyHtml?: string;
 }
 
+export function SiteHeader({ right }: { right?: string }) {
+  return (
+    <header class="site-header">
+      <span class="wordmark">md-translate</span>
+      {right !== undefined && <span class="header-summary">{right}</span>}
+    </header>
+  );
+}
+
 /** The page shell around `bodyHtml`, which is trusted HTML and is not escaped. */
 export function pageWrapper(title: string, bodyHtml: string, options: PageOptions): string {
   const { stylesheetHref, extraBodyHtml = "" } = options;

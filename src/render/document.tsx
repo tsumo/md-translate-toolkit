@@ -25,7 +25,15 @@ function githubBlobUrl(repo: string, commit: string, path: string): string {
   return `https://github.com/${repo}/blob/${commit}/${encodePathSegments(path)}`;
 }
 
-export function Footer({ attribution, entry }: { attribution: Attribution; entry?: ManifestEntry }) {
+export function Footer({
+  attribution,
+  entry,
+  note,
+}: {
+  attribution: Attribution;
+  entry?: ManifestEntry;
+  note?: string;
+}) {
   const parts = [];
 
   if (entry) {
@@ -48,10 +56,12 @@ export function Footer({ attribution, entry }: { attribution: Attribution; entry
     );
   }
 
+  if (note) parts.push(note);
+
   if (parts.length === 0) return null;
   return (
     <footer>
-      <p>{parts.flatMap((part, i) => (i === 0 ? [part] : [" — ", part]))}.</p>
+      <p>{parts.flatMap((part, i) => (i === 0 ? [part] : [" · ", part]))}</p>
     </footer>
   );
 }
