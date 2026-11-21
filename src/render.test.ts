@@ -2,17 +2,14 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { parseBlocks } from "./parse-blocks.js";
 import { documentToBlockHtml } from "./render/blocks.js";
-import { renderDocumentBody } from "./render/document.js";
+import { renderDocumentBody, renderDocumentHeader } from "./render/document.js";
 import { indexSummary, renderIndexCard, renderIndexHeader } from "./render/index-page.js";
+import { documentCaption } from "./render/progress.js";
 import { placeholderFor, stringifyBlocks } from "./split-blocks.js";
 import type { ManifestEntry } from "./types.js";
 
 function normalizeHtml(html: string): string {
   return html.replace(/>\s+</g, "><").trim();
-}
-
-function assertHtmlEqual(actual: string, expected: string): void {
-  assert.equal(normalizeHtml(actual), normalizeHtml(expected));
 }
 
 function assertOrder(html: string, ...substrings: string[]): void {
@@ -48,59 +45,105 @@ describe("documentToBlockHtml", () => {
   });
 });
 
-describe("renderDocumentBody", () => {
-  it("zips original and translation HTML into ordered row triples, labeled with the block index", () => {
-    const [n1] = parseBlocks("");
-    const [n2] = parseBlocks("");
-    const body = renderDocumentBody("/", ["<p>O1</p>", "<p>O2</p>"], ["<p>T1</p>", "<p>T2</p>"], [n1, n2]);
-    assertHtmlEqual(
-      body,
-      '<p><a href="/">&larr; all documents</a></p><div class="columns">' +
-        '<div><p class="block-index">0</p></div><div><p>O1</p></div><div><p>T1</p></div>' +
-        '<div><p class="block-index">1</p></div><div><p>O2</p></div><div><p>T2</p></div>' +
-        "</div>",
+describe("renderDocumentHeader", () => {
+  const blocks = [
+    { kind: "paragraph" as const, fingerprint: "0000000000000000", status: "verified" as const },
+    { kind: "paragraph" as const, fingerprint: "1111111111111111", status: "complete" as const },
+    { kind: "paragraph" as const, fingerprint: "2222222222222222", status: "needs-attention" as const },
+    { kind: "paragraph" as const, fingerprint: "3333333333333333", status: "in-progress" as const },
+  ];
+
+  it("joins the back link and the file name in one breadcrumb whose slash and name sit outside the link", () => {
+    const header = renderDocumentHeader("/", { original_path: "Example.md", blocks }, { translated: 3, total: 4 });
+    assert.match(header, /<header class="site-header doc-header">/);
+    assert.match(
+      header,
+      /<p class="breadcrumb"><a href="\/">← Translations<\/a> \/ <span class="crumb-file">Example\.md<\/span><\/p>/,
     );
+    // The slash and the file name are plain text; no second link wraps them.
+    assert.equal(header.match(/<a /g)?.length, 1);
   });
 
-  it("marks only the translation side as untranslated, not the original side", () => {
+  it("escapes a relative backHref, so a literal & in it cannot break out of the href attribute", () => {
+    const header = renderDocumentHeader(
+      "../a & b/index.html",
+      { original_path: "Example.md", blocks: [] },
+      { translated: 0, total: 0 },
+    );
+    assert.match(header, /<a href="\.\.\/a &amp; b\/index\.html">/);
+  });
+
+  it("puts the caption with the needs-attention count right before the mini bar", () => {
+    const header = renderDocumentHeader("/", { original_path: "Example.md", blocks }, { translated: 3, total: 4 });
+    assert.match(header, /<span class="header-caption">3\/4 blocks · 1 needs-attention<\/span>/);
+    assertOrder(header, "breadcrumb", "header-caption", '<div class="bar">');
+  });
+
+  it("draws the mini bar in status order, one segment per status with blocks present", () => {
+    const header = renderDocumentHeader("/", { original_path: "Example.md", blocks }, { translated: 3, total: 4 });
+    assert.match(header, /<span class="bar-seg status-verified" style="flex-grow:1"><\/span>/);
+    assert.match(header, /<span class="bar-seg status-complete" style="flex-grow:1"><\/span>/);
+    assert.match(header, /<span class="bar-seg status-needs-attention" style="flex-grow:1"><\/span>/);
+    assert.match(header, /<span class="bar-seg status-in-progress" style="flex-grow:1"><\/span>/);
+    assertOrder(header, "status-verified", "status-complete", "status-needs-attention", "status-in-progress");
+  });
+
+  it("draws a whole not-started bar while nothing is translated", () => {
+    const header = renderDocumentHeader("/", { original_path: "Example.md", blocks }, { translated: 0, total: 4 });
+    assert.equal(header.match(/bar-seg/g)?.length, 1);
+    assert.match(header, /bar-seg status-not-started/);
+  });
+});
+
+describe("renderDocumentBody", () => {
+  it("labels the two panels, then orders each row original cell, rail, translation cell", () => {
+    const [n1, n2] = parseBlocks("Переведено.\n\nЕще.");
+    const body = renderDocumentBody(["<p>O1</p>", "<p>O2</p>"], ["<p>T1</p>", "<p>T2</p>"], [n1, n2]);
+    assertOrder(
+      body,
+      '<main><div class="doc-grid"><div class="panel-label">Original</div>',
+      '<div class="panel-label">Translation</div>',
+      '<div class="cell orig"><p>O1</p></div>',
+      '<div class="rail"><p class="block-index">0</p></div>',
+      '<div class="cell"><p>T1</p></div>',
+      '<div class="cell orig"><p>O2</p></div>',
+      '<div class="rail"><p class="block-index">1</p></div>',
+      '<div class="cell"><p>T2</p></div>',
+    );
+    // The grid carries no editable data, e.g. the static build.
+    assert.doesNotMatch(body, /data-original-path|data-block/);
+  });
+
+  it("marks only the translation side as untranslated, with the tag inside the amber box", () => {
     const [original] = parseBlocks("Original text.");
     const [untranslatedNode] = parseBlocks(stringifyBlocks([placeholderFor(original)]));
-    const body = renderDocumentBody("/", ["<p>O</p>"], ["<p>T</p>"], [untranslatedNode]);
-    assertHtmlEqual(
+    const body = renderDocumentBody(["<p>O</p>"], ["<p>T</p>"], [untranslatedNode]);
+    assert.match(
       body,
-      '<p><a href="/">&larr; all documents</a></p><div class="columns">' +
-        '<div><p class="block-index">0</p></div><div><p>O</p></div><div class="untranslated"><p>T</p></div>' +
-        "</div>",
+      /<div class="cell untranslated"><div class="untrans-box"><p>T<\/p><p class="untrans-tag">UNTRANSLATED<\/p><\/div><\/div>/,
     );
+    assert.match(body, /<div class="cell orig"><p>O<\/p><\/div>/);
   });
 
   it("embeds rehype block HTML raw, so a <br> inside a paragraph stays a tag", () => {
     const [n1] = parseBlocks("Line one.<br>\nLine two.");
-    const body = renderDocumentBody("/", ["<p>Line one.<br>\nLine two.</p>"], [], [n1]);
+    const body = renderDocumentBody(["<p>Line one.<br>\nLine two.</p>"], [], [n1]);
     assert.match(body, /<p>Line one\.<br>\nLine two\.<\/p>/);
   });
 
-  it("fills a missing side with an empty string when the two lists differ in length", () => {
+  it("fills a missing side with an empty cell when the two lists differ in length", () => {
     const [n1] = parseBlocks("Переведено.");
-    const body = renderDocumentBody("/", ["<p>O1</p>", "<p>O2</p>"], ["<p>T1</p>"], [n1]);
-    assertHtmlEqual(
+    const body = renderDocumentBody(["<p>O1</p>", "<p>O2</p>"], ["<p>T1</p>"], [n1]);
+    assertOrder(
       body,
-      '<p><a href="/">&larr; all documents</a></p><div class="columns">' +
-        '<div><p class="block-index">0</p></div><div><p>O1</p></div><div><p>T1</p></div>' +
-        '<div><p class="block-index">1</p></div><div><p>O2</p></div><div></div>' +
-        "</div>",
+      '<div class="cell"><p>T1</p></div>',
+      '<div class="cell orig"><p>O2</p></div>',
+      '<div class="rail"><p class="block-index">1</p></div>',
+      '<div class="cell"></div>',
     );
   });
 
-  it("HTML-escapes backHref, so a literal & in it cannot break out of the href attribute", () => {
-    const body = renderDocumentBody("../a & b/index.html", [], [], []);
-    assertHtmlEqual(
-      body,
-      '<p><a href="../a &amp; b/index.html">&larr; all documents</a></p><div class="columns"></div>',
-    );
-  });
-
-  it("renders a status pill per block and the data the client needs when editable info is given", () => {
+  it("renders a display-only status pill per block and the grid data the client needs when editable", () => {
     const [n1, n2] = parseBlocks("Переведено.\n\nЕще.");
     const editable = {
       originalPath: "reviewed/Simple.md",
@@ -109,17 +152,15 @@ describe("renderDocumentBody", () => {
         { kind: "paragraph" as const, fingerprint: "1111111111111111", status: "verified" as const },
       ],
     };
-    const body = renderDocumentBody("/", ["<p>O1</p>", "<p>O2</p>"], ["<p>T1</p>", "<p>T2</p>"], [n1, n2], editable);
+    const body = renderDocumentBody(["<p>O1</p>", "<p>O2</p>"], ["<p>T1</p>", "<p>T2</p>"], [n1, n2], editable);
+    assert.match(body, /<span class="status-pill status-complete" data-block="0" data-status="complete"/);
+    assert.match(body, /<span class="status-pill status-verified" data-block="1"/);
     assert.match(
       body,
-      /<button type="button" class="status-pill status-complete" data-block="0" data-status="complete"/,
+      /<div class="doc-grid" data-original-path="reviewed\/Simple\.md" data-statuses="in-progress complete verified needs-attention">/,
     );
-    assert.match(body, /<button type="button" class="status-pill status-verified" data-block="1"/);
-    assert.match(
-      body,
-      /<div class="columns" data-original-path="reviewed\/Simple\.md" data-statuses="in-progress complete verified needs-attention">/,
-    );
-    assert.doesNotMatch(body, /<dialog|<form|<script/);
+    // Pills are display-only: no clickable element and no editing markup in the server HTML.
+    assert.doesNotMatch(body, /<button|<dialog|<form|<script/);
   });
 
   it("marks a needs-attention pill with ! and puts the comment in its title", () => {
@@ -135,24 +176,61 @@ describe("renderDocumentBody", () => {
         },
       ],
     };
-    const body = renderDocumentBody("/", ["<p>O1</p>"], ["<p>T1</p>"], [n1], editable);
-    assert.match(body, /title="needs-attention: check this"[^>]*>0!<\/button>/);
+    const body = renderDocumentBody(["<p>O1</p>"], ["<p>T1</p>"], [n1], editable);
+    assert.match(body, /title="needs-attention: check this"[^>]*>0!<\/span>/);
   });
 
-  it("renders a plain number, not a pill, for a thematic-break block, which has no text to set status on", () => {
+  it("renders a flagged block as a tinted box with the comment as a red note below it", () => {
+    const [n1] = parseBlocks("Переведено.");
+    const editable = {
+      originalPath: "reviewed/Simple.md",
+      blocks: [
+        {
+          kind: "paragraph" as const,
+          fingerprint: "0000000000000000",
+          status: "needs-attention" as const,
+          status_comment: "check this",
+        },
+      ],
+    };
+    const body = renderDocumentBody(["<p>O1</p>"], ["<p>T1</p>"], [n1], editable);
+    assert.match(
+      body,
+      /<div class="cell flagged block-cell" data-block="0"><div class="flag-box"><p>T1<\/p><\/div><p class="flag-note">Needs attention — check this<\/p><\/div>/,
+    );
+    // The original side carries no tint and no note.
+    assert.doesNotMatch(body, /cell orig flagged|flag-note.*O1/);
+    assertOrder(body, "flag-box", "flag-note");
+  });
+
+  it("renders an editable untranslated block as an amber box openable in the editor, with the tag inside", () => {
+    const [original] = parseBlocks("Original text.");
+    const [untranslatedNode] = parseBlocks(stringifyBlocks([placeholderFor(original)]));
+    const editable = {
+      originalPath: "reviewed/Simple.md",
+      blocks: [{ kind: "list" as const, fingerprint: "0000000000000000", status: "in-progress" as const }],
+    };
+    const body = renderDocumentBody(["<p>O</p>"], ["<ul><li>T</li></ul>"], [untranslatedNode], editable);
+    assert.match(body, /<div class="cell untranslated block-cell" data-block="0"><div class="untrans-box">/);
+    assertOrder(body, "<ul>", "untrans-tag");
+  });
+
+  it("renders a plain centered number, not a pill or cell styling, for a thematic-break row", () => {
     const [n1] = parseBlocks("---");
     const editable = {
       originalPath: "reviewed/Simple.md",
-      blocks: [{ kind: "thematicBreak", fingerprint: "0000000000000000", status: "complete" as const }],
+      blocks: [{ kind: "thematicBreak" as const, fingerprint: "0000000000000000", status: "complete" as const }],
     };
-    const body = renderDocumentBody("/", ["<hr>"], ["<hr>"], [n1], editable);
-    assert.match(body, /<p class="block-index">0<\/p>/);
-    assert.doesNotMatch(body, /<button type="button" class="status-pill/);
+    const body = renderDocumentBody(["<hr>"], ["<hr>"], [n1], editable);
+    assert.match(body, /<div class="rail rail-divider"><p class="block-index">0<\/p><\/div>/);
+    assert.match(body, /<div class="cell divider-row"><hr><\/div>/);
+    assert.match(body, /<div class="cell orig divider-row"><hr><\/div>/);
+    assert.doesNotMatch(body, /status-pill|block-cell|untranslated/);
   });
 
-  it("renders no pill and no dialog when editable info is omitted, e.g. the static build", () => {
+  it("renders no pill and no editing markup when editable info is omitted, e.g. the static build", () => {
     const [n1] = parseBlocks("Переведено.");
-    const body = renderDocumentBody("/", ["<p>O1</p>"], ["<p>T1</p>"], [n1]);
+    const body = renderDocumentBody(["<p>O1</p>"], ["<p>T1</p>"], [n1]);
     assert.doesNotMatch(body, /status-pill/);
     assert.doesNotMatch(body, /<dialog|<form|<script/);
   });
@@ -170,7 +248,7 @@ describe("renderDocumentBody", () => {
         },
       ],
     };
-    const body = renderDocumentBody("/", ["<p>O1</p>"], ["<p>T1</p>"], [n1], editable);
+    const body = renderDocumentBody(["<p>O1</p>"], ["<p>T1</p>"], [n1], editable);
     assert.match(body, /data-comment="check &quot;this&quot; &amp; that"/);
   });
 });
@@ -282,6 +360,17 @@ describe("renderIndexCard", () => {
     assert.match(html, /bar-seg status-not-started/);
     assert.match(html, /0 of 0 blocks translated · 1 needs-attention/);
     assert.doesNotMatch(html, /open the document/);
+  });
+});
+
+describe("documentCaption", () => {
+  it("reads translated/total blocks, plus the needs-attention count when there is one", () => {
+    assert.equal(documentCaption({ translated: 5, total: 6 }, 1), "5/6 blocks · 1 needs-attention");
+    assert.equal(documentCaption({ translated: 6, total: 6 }, 0), "6/6 blocks");
+  });
+
+  it("uses the singular for one block", () => {
+    assert.equal(documentCaption({ translated: 1, total: 1 }, 0), "1/1 block");
   });
 });
 

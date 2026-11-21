@@ -110,9 +110,12 @@ export function placeholderFor(node: RootContent): RootContent {
   }
 }
 
-/** Counts translated blocks and all blocks. Dividers have no text, so it skips them. */
+export function progressFromNodes(nodes: RootContent[]): { translated: number; total: number } {
+  const content = nodes.filter((node) => node.type !== "thematicBreak");
+  const translated = content.filter((node) => !isUntranslated(node)).length;
+  return { translated, total: content.length };
+}
+
 export function translationProgress(markdown: string): { translated: number; total: number } {
-  const nodes = parseBlocks(markdown).filter((node) => node.type !== "thematicBreak");
-  const translated = nodes.filter((node) => !isUntranslated(node)).length;
-  return { translated, total: nodes.length };
+  return progressFromNodes(parseBlocks(markdown));
 }

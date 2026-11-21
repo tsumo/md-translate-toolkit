@@ -3,34 +3,14 @@ import { readFileSync } from "node:fs";
 import { hrefForDoc } from "../paths.js";
 import { translationProgress } from "../split-blocks.js";
 import { deriveFileStatus } from "../status.js";
-import type { ManifestEntry, TranslationStatus } from "../types.js";
+import type { ManifestEntry } from "../types.js";
 import { type Attribution, Footer } from "./document.js";
 import { type PageOptions, pageWrapper, SiteHeader } from "./page.js";
-
-/** The statuses a card's progress bar draws, left to right. */
-const BAR_STATUSES: TranslationStatus[] = ["verified", "complete", "needs-attention", "in-progress"];
-
-/** The translated and total block counts of one document. */
-type Progress = { translated: number; total: number };
+import { barSegments, countingBlocks, needsAttentionCount, type Progress } from "./progress.js";
 
 interface IndexCardProps {
   entry: ManifestEntry;
   progress: Progress;
-}
-
-/** The blocks a card counts: the manifest blocks minus thematic breaks, which hold no text and are
- * skipped by `translationProgress` too. */
-function countingBlocks(entry: Pick<ManifestEntry, "blocks">): ManifestEntry["blocks"] {
-  return entry.blocks.filter((block) => block.kind !== "thematicBreak");
-}
-
-/** The segments of a card's progress bar: one per status, in draw order. A document with nothing
- * translated yet draws one not-started segment, like the chip. */
-function barSegments(counting: ManifestEntry["blocks"], progress: Progress): { status: TranslationStatus; count: number }[] {
-  if (progress.translated === 0) return counting.length > 0 ? [{ status: "not-started", count: counting.length }] : [];
-  return BAR_STATUSES.map((status) => ({ status, count: counting.filter((b) => b.status === status).length })).filter(
-    (segment) => segment.count > 0,
-  );
 }
 
 /** The caption under the bar: the translated count, plus the needs-attention count, or an invitation to
@@ -47,7 +27,7 @@ function cardCaption(progress: Progress, needsAttention: number): string {
 function IndexCard({ entry, progress }: IndexCardProps) {
   const status = deriveFileStatus(entry.blocks, progress);
   const counting = countingBlocks(entry);
-  const needsAttention = counting.filter((block) => block.status === "needs-attention").length;
+  const needsAttention = needsAttentionCount(counting);
   return (
     <li>
       <a class="index-card" href={hrefForDoc(entry.original_path)}>
@@ -77,10 +57,7 @@ export function renderIndexCard(entry: ManifestEntry, progress: Progress): strin
 export function indexSummary(entries: Pick<ManifestEntry, "blocks">[], progresses: Progress[]): string {
   const total = progresses.reduce((sum, progress) => sum + progress.total, 0);
   const translated = progresses.reduce((sum, progress) => sum + progress.translated, 0);
-  const needsAttention = entries.reduce(
-    (sum, entry) => sum + countingBlocks(entry).filter((block) => block.status === "needs-attention").length,
-    0,
-  );
+  const needsAttention = entries.reduce((sum, entry) => sum + needsAttentionCount(countingBlocks(entry)), 0);
   return (
     `${entries.length} document${entries.length === 1 ? "" : "s"} · ` +
     `${translated} of ${total} block${total === 1 ? "" : "s"} · ` +

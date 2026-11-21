@@ -58,6 +58,15 @@ h2 {
   font-size: 0.85rem;
   text-align: right;
 }
+footer {
+  margin-top: 3rem;
+  padding: 1rem 0 2rem;
+  color: var(--ink-soft);
+  font-size: 0.75rem;
+}
+footer a {
+  color: inherit;
+}
 
 /* The index: one card per claimed document. */
 main {
@@ -151,30 +160,195 @@ ul.index {
   background: var(--status-stale);
 }
 
-/* The document page: the block-number column, the original, and the translation. */
-.columns {
+/* The document page header: the breadcrumb, the progress caption hugging the mini bar. */
+.site-header.doc-header {
+  height: 4rem;
+}
+.breadcrumb {
+  margin: 0;
+  font-size: 0.95rem;
+}
+.breadcrumb a {
+  color: var(--accent);
+  font-weight: 600;
+  text-decoration: none;
+}
+.crumb-file {
+  font-weight: 600;
+}
+.header-progress {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+}
+.header-caption {
+  color: var(--ink-soft);
+  font-size: 0.85rem;
+  white-space: nowrap;
+}
+.header-progress .bar {
+  width: 17.5rem;
+}
+
+/* The document grid: original, rail, translation. The two panels are one co-scrolling grid, so a
+   block pair never loses alignment; the panel cards themselves are the ::before/::after backgrounds. */
+.doc-grid {
+  position: relative;
+  /* A stacking context, so the panel backgrounds can sink below the cells with z-index -1. */
+  isolation: isolate;
   display: grid;
-  grid-template-columns: max-content 1fr 1fr;
-  gap: 0 1.5rem;
+  grid-template-columns: 1fr 1.75rem 1fr;
+  column-gap: 2.5rem;
+  row-gap: 1.25rem;
+  margin-top: 1.5rem;
 }
-@media (max-width: 768px) {
-  .columns {
-    grid-template-columns: 1fr;
-  }
+.doc-grid::before,
+.doc-grid::after {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  top: 0;
+  /* The panels' foot is this overshoot: no row carries padding, so a divider's plain index
+     stays centered on its rule. */
+  bottom: -1.5rem;
+  width: calc((100% - 1.75rem - 5rem) / 2);
+  background: var(--surface);
+  border: 1px solid var(--hairline);
+  border-radius: 0.75rem;
 }
-.columns > * {
+.doc-grid::before {
+  left: 0;
+}
+.doc-grid::after {
+  right: 0;
+}
+.doc-grid > * {
+  position: relative;
   min-width: 0;
   overflow-wrap: break-word;
-  padding: 0.4rem;
 }
-.columns > :nth-child(6n + 2),
-.columns > :nth-child(6n + 3) {
+.panel-label {
+  padding: 1rem 1.5rem 0.5rem;
+  border-bottom: 1px solid var(--hairline);
+  color: var(--ink-soft);
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.doc-grid .cell {
+  padding: 0 1.5rem;
+}
+.doc-grid .cell > * {
+  margin: 0;
+}
+
+/* Block kinds inside the cells: quotes and code on muted panels, tables with hairline-dark rules. */
+.doc-grid .cell blockquote > * {
+  margin: 0;
+}
+.doc-grid .cell.orig blockquote {
   background: var(--panel-gray);
+  border-radius: 0.5rem;
+  padding: 0.875rem 1.25rem;
 }
-.columns > .untranslated {
+.doc-grid pre {
+  background: var(--code-panel);
+  border-radius: 0.5rem;
+  padding: 0.875rem 1.25rem;
+  font-size: 0.85rem;
+  overflow-x: auto;
+}
+.doc-grid table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.doc-grid th,
+.doc-grid td {
+  border: 1px solid var(--hairline-dark);
+  padding: 0.4rem 0.75rem;
+}
+.doc-grid th {
+  background: var(--panel-gray);
+  text-align: left;
+}
+.doc-grid hr {
+  border: 0;
+  border-top: 1px solid var(--hairline-dark);
+}
+
+/* The center rail: display-only pills, tops aligned with their block's start. */
+.block-index {
+  color: var(--ink-soft);
+  font-size: 0.8rem;
+  text-align: center;
+  margin: 0;
+}
+.doc-grid .rail {
+  align-self: start;
+  display: flex;
+  justify-content: center;
+}
+/* A divider row is pill-sized, like in the design: the plain index and the rule are both centered
+   on the row's midline, so the index sits centered on the rule. */
+.doc-grid .rail-divider {
+  height: 1.75rem;
+  align-items: center;
+}
+.doc-grid .divider-row {
+  display: flex;
+  align-items: center;
+}
+.doc-grid .divider-row hr {
+  flex: 1;
+}
+.status-pill {
+  display: inline-grid;
+  place-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 50%;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--surface);
+  box-shadow: 0 0 0 1.5px var(--surface);
+}
+
+/* Block states in the translation panel: inset tinted boxes, like the prototype. */
+.doc-grid .cell .flag-box {
+  background: var(--flag-tint);
+  border: 1px solid var(--status-needs-attention);
+  border-radius: 0.5rem;
+  padding: 0.875rem 1.25rem;
+}
+.doc-grid .cell .flag-box > * {
+  margin: 0;
+}
+.doc-grid .cell .flag-note {
+  color: var(--status-needs-attention);
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin: 0.5rem 0 0;
+  padding-left: 1.25rem;
+}
+.doc-grid .cell .untrans-box {
   background: var(--untrans-tint);
+  border: 1px solid var(--status-stale);
+  border-radius: 0.5rem;
+  padding: 0.875rem 1.25rem 0.625rem;
 }
-.columns > .block-cell {
+.doc-grid .cell .untrans-box > * {
+  margin: 0;
+}
+.doc-grid .cell .untrans-box .untrans-tag {
+  color: var(--status-stale);
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  margin: 0.25rem 0 0;
+}
+.block-cell {
   cursor: text;
 }
 .inline-editor {
@@ -195,21 +369,6 @@ ul.index {
 .inline-editor input {
   width: 100%;
 }
-.block-index {
-  color: var(--ink-soft);
-  font-size: 0.8rem;
-  text-align: right;
-  margin: 1rem 0;
-}
-.status-pill {
-  border: 0;
-  border-radius: 1rem;
-  padding: 0.1rem 0.5rem;
-  min-width: 1.8rem;
-  font: inherit;
-  color: var(--surface);
-  cursor: pointer;
-}
 .actions {
   display: flex;
   gap: 0.4rem;
@@ -221,12 +380,17 @@ ul.index {
   margin: 0;
 }
 
-footer {
-  margin-top: 3rem;
-  padding: 1rem 0 2rem;
-  color: var(--ink-soft);
-  font-size: 0.75rem;
-}
-footer a {
-  color: inherit;
+/* A narrow viewport stacks the two panels in one column. The full phone layout is its own ticket. */
+@media (max-width: 768px) {
+  .doc-grid {
+    grid-template-columns: 1fr;
+  }
+  .doc-grid::before,
+  .doc-grid::after,
+  .doc-grid .rail {
+    display: none;
+  }
+  .header-progress .bar {
+    width: 8rem;
+  }
 }

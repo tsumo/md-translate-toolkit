@@ -203,11 +203,11 @@ describe("dev server against the fixture project", () => {
     const html = await res.text();
     assert.match(html, /Заголовок/);
     // Block 3 is the untranslated list: highlighted and openable in the inline block editor.
-    assert.match(html, /class="untranslated block-cell" data-block="3"/);
+    assert.match(html, /class="cell untranslated block-cell" data-block="3"/);
     // Block 1 is a plain translated paragraph: openable, without the highlight.
-    assert.match(html, /class="block-cell" data-block="1"/);
-    assert.match(html, /<button type="button" class="status-pill [^"]*" data-block="0"/);
-    assert.match(html, /<div class="columns" data-original-path="Example\.md" data-statuses="[^"]+">/);
+    assert.match(html, /class="cell block-cell" data-block="1"/);
+    assert.match(html, /<span class="status-pill [^"]*" data-block="0"/);
+    assert.match(html, /<div class="doc-grid" data-original-path="Example\.md" data-statuses="[^"]+">/);
     assert.doesNotMatch(html, /<dialog/);
 
     // Block 6 is the divider. It has no text, so it never holds the marker.
