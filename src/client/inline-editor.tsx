@@ -1,11 +1,12 @@
 /**
  * The inline block editor. A click on a translation cell fetches the block's raw Markdown source and its kind
- * from the dev server, then replaces the cell's content with a plain-text Markdown field. The status select
- * opens on the block's current status and the comment field on its existing comment. Save (or Ctrl/Cmd+Enter)
+ * from the dev server, then replaces the cell's content with the editor card: a plain-text Markdown field
+ * prefilled per the placeholder rule, the status select, and the comment field. Save (or Ctrl/Cmd+Enter)
  * checks the submission rule with the shared validator and posts text, status, and comment. The server checks
- * the rule again and any refusal shows inside the editor. Escape or Cancel puts the rendered block back and
- * writes nothing. Only one editor is open at a time. While one is open, clicks on other cells are ignored,
- * so an open edit is never silently discarded.
+ * the rule again and a rejection replaces the keyboard hint line until the next edit. The comment field is
+ * browser-required while needs-attention is selected, and Save wears the selected status's color. Escape or
+ * Cancel dismisses it and writes nothing. Only one editor is open at a time: while one is open, clicks on
+ * other cells are ignored, so an open edit is never silently discarded.
  */
 import {
   ATTR_BLOCK,
@@ -48,17 +49,32 @@ interface EditorProps {
 
 /**
  * Builds the editor that replaces the cell's content. Cancel calls `onDismiss`. Save and Ctrl/Cmd+Enter send
- * through `onSend`, which returns the server's rejection reason to show in the editor, or null on success.
+ * through `onSend`, which returns the server's rejection reason to show in place of the keyboard hint, or
+ * null on success.
  */
 function buildEditor(props: EditorProps): DocumentFragment {
   let field!: HTMLTextAreaElement;
   let statusSelect!: HTMLSelectElement;
   let commentInput!: HTMLInputElement;
+  let save!: HTMLButtonElement;
+  let hint!: HTMLParagraphElement;
   let error!: HTMLParagraphElement;
 
+  // The keyboard hint and a rejection share one line: an error swaps in, the next edit swaps the hint back.
   const showError = (message: string) => {
+    hint.hidden = true;
     error.textContent = message;
     error.hidden = false;
+  };
+  const restoreHint = () => {
+    error.hidden = true;
+    hint.hidden = false;
+  };
+
+  // The select drives the comment field's browser-required flag and Save's status color.
+  const applyStatus = () => {
+    commentInput.required = statusSelect.value === "needs-attention";
+    save.className = `save status-${statusSelect.value}`;
   };
 
   const submit = async () => {
@@ -70,8 +86,8 @@ function buildEditor(props: EditorProps): DocumentFragment {
     }
     const failure = await props.onSend(field.value, statusSelect.value, commentInput.value);
     if (failure) showError(failure);
-    // Saved. No DOM change: the live-reload stream refreshes the page.
-    else error.hidden = true;
+    // Saved. Only the hint line comes back; the live-reload stream refreshes the page.
+    else restoreHint();
   };
 
   return renderFragment(
@@ -94,48 +110,75 @@ function buildEditor(props: EditorProps): DocumentFragment {
             void submit();
           }
         }}
+        onInput={restoreHint}
       />
-      <select
-        aria-label="Status"
-        value={props.currentStatus}
-        ref={(el: HTMLSelectElement) => {
-          statusSelect = el;
-        }}
-      >
-        {props.statuses.map((status) => (
-          <option value={status}>{status}</option>
-        ))}
-      </select>
-      <input
-        type="text"
-        placeholder="comment"
-        value={props.currentComment}
-        ref={(el: HTMLInputElement) => {
-          commentInput = el;
-        }}
-      />
-      <p
-        className="status-error"
-        hidden
-        ref={(el: HTMLParagraphElement) => {
-          error = el;
-        }}
-      />
-      <div className="actions">
-        <button type="button" onClick={props.onDismiss}>
-          Cancel
-        </button>
-        <button type="submit">Save</button>
+      <div className="editor-fields">
+        <select
+          aria-label="Status"
+          value={props.currentStatus}
+          ref={(el: HTMLSelectElement) => {
+            statusSelect = el;
+          }}
+          onChange={() => {
+            applyStatus();
+            restoreHint();
+          }}
+        >
+          {props.statuses.map((status) => (
+            <option value={status}>{status}</option>
+          ))}
+        </select>
+        <input
+          type="text"
+          placeholder="comment"
+          value={props.currentComment}
+          required={props.currentStatus === "needs-attention"}
+          ref={(el: HTMLInputElement) => {
+            commentInput = el;
+          }}
+          onInput={restoreHint}
+        />
+      </div>
+      <div className="editor-foot">
+        <p
+          className="kbd-hint"
+          ref={(el: HTMLParagraphElement) => {
+            hint = el;
+          }}
+        >
+          Esc cancels · Ctrl/Cmd+Enter saves
+        </p>
+        <p
+          className="status-error"
+          hidden
+          ref={(el: HTMLParagraphElement) => {
+            error = el;
+          }}
+        />
+        <div className="actions">
+          <button type="button" className="cancel" onClick={props.onDismiss}>
+            Cancel
+          </button>
+          <button
+            type="submit"
+            className={`save status-${props.currentStatus}`}
+            ref={(el: HTMLButtonElement) => {
+              save = el;
+            }}
+          >
+            Save
+          </button>
+        </div>
       </div>
     </form>,
   );
 }
 
 export function startInlineEditor(): void {
-  const columns = document.querySelector<HTMLElement>(`[${ATTR_ORIGINAL_PATH}]`);
-  if (!columns) return;
-  const originalPath = columns.getAttribute(ATTR_ORIGINAL_PATH) ?? "";
-  const statuses = (columns.getAttribute(ATTR_STATUSES) ?? "").split(" ").filter(Boolean);
+  const docGrid = document.querySelector<HTMLElement>(`[${ATTR_ORIGINAL_PATH}]`);
+  if (!docGrid) return;
+  const originalPath = docGrid.getAttribute(ATTR_ORIGINAL_PATH) ?? "";
+  const statuses = (docGrid.getAttribute(ATTR_STATUSES) ?? "").split(" ").filter(Boolean);
 
   // The dismiss of the open editor, if any. Claimed before the fetch, so a second click during the
   // request cannot open a second editor.
@@ -184,7 +227,13 @@ export function startInlineEditor(): void {
       cell.replaceChildren(
         buildEditor({ block, kind, text, statuses, currentStatus, currentComment, onDismiss: dismiss, onSend: send }),
       );
-      cell.querySelector("textarea")?.focus();
+      const textarea = cell.querySelector("textarea");
+      if (textarea) {
+        textarea.focus();
+        // The caret starts after the prefilled text.
+        const end = textarea.value.length;
+        textarea.setSelectionRange(end, end);
+      }
     } catch (err) {
       if (dismissOpen !== dismiss) return; // likewise: leave the restored cell alone
       const message = err instanceof Error ? err.message : String(err);
