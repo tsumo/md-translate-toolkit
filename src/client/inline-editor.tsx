@@ -6,7 +6,9 @@
  * the rule again and a rejection replaces the keyboard hint line until the next edit. The comment field is
  * browser-required while needs-attention is selected, and Save wears the selected status's color. Escape or
  * Cancel dismisses it and writes nothing. Only one editor is open at a time: while one is open, clicks on
- * other cells are ignored, so an open edit is never silently discarded.
+ * other cells are ignored, so an open edit is never silently discarded. On a phone the block's original is
+ * restated as a muted strip above the field, cloned from the row's original cell while the cell and the pill
+ * hide; on a desktop the strip stays display:none beside the visible original panel.
  */
 import {
   ATTR_BLOCK,
@@ -14,12 +16,17 @@ import {
   ATTR_ORIGINAL_PATH,
   ATTR_STATUS,
   ATTR_STATUSES,
+  BLOCK_ROW_CLASS,
   CELL_CLASS,
+  ORIG_CLASS,
   PILL_CLASS,
 } from "../dom-names.js";
 import { prefillForBlock } from "../placeholder.js";
 import { validateBlockText } from "../validate-block-text.js";
 import { renderFragment } from "./fragment.js";
+
+/** Mark on a block row while its editor is open; the phone stylesheet turns the row into the editor box. */
+const EDITING_CLASS = "editing";
 
 /** The rendered block of each cell that an editor or an error replaced, so dismissal can put it back. */
 const renderedByCell = new WeakMap<HTMLElement, Node[]>();
@@ -39,6 +46,8 @@ interface EditorProps {
   kind: string;
   /** The block's raw Markdown source. `prefillForBlock` decides the field's starting text. */
   text: string;
+  /** The original cell's rendered HTML, restated as the muted reference strip above the field on a phone. */
+  originalHtml: string;
   /** The statuses the select offers, with `currentStatus` preselected. */
   statuses: string[];
   currentStatus: string;
@@ -98,6 +107,9 @@ function buildEditor(props: EditorProps): DocumentFragment {
         void submit();
       }}
     >
+      {props.originalHtml !== "" && (
+        <div className="editor-orig" dangerouslySetInnerHTML={{ __html: props.originalHtml }} />
+      )}
       <textarea
         value={prefillForBlock(props.text)}
         aria-label={`Block ${props.block}, ${props.kind}`}
@@ -186,8 +198,10 @@ export function startInlineEditor(): void {
 
   async function openEditor(cell: HTMLElement, block: string): Promise<void> {
     const rendered = renderedContent(cell);
+    const row = cell.closest(`.${BLOCK_ROW_CLASS}`);
     const dismiss = () => {
       cell.replaceChildren(...rendered);
+      row?.classList.remove(EDITING_CLASS);
       dismissOpen = null;
       document.removeEventListener("keydown", onKeydown);
     };
@@ -225,8 +239,20 @@ export function startInlineEditor(): void {
         }
       };
       cell.replaceChildren(
-        buildEditor({ block, kind, text, statuses, currentStatus, currentComment, onDismiss: dismiss, onSend: send }),
+        buildEditor({
+          block,
+          kind,
+          text,
+          originalHtml: row?.querySelector<HTMLElement>(`.cell.${ORIG_CLASS}`)?.innerHTML ?? "",
+          statuses,
+          currentStatus,
+          currentComment,
+          onDismiss: dismiss,
+          onSend: send,
+        }),
       );
+      // On a phone the row hides its original cell and pill, leaving the editor as the card's content.
+      row?.classList.add(EDITING_CLASS);
       const textarea = cell.querySelector("textarea");
       if (textarea) {
         textarea.focus();

@@ -96,20 +96,22 @@ describe("renderDocumentHeader", () => {
 });
 
 describe("renderDocumentBody", () => {
-  it("labels the two panels, then orders each row original cell, rail, translation cell", () => {
+  it("labels the two panels, then orders each block row as original cell, rail, translation cell", () => {
     const [n1, n2] = parseBlocks("Переведено.\n\nЕще.");
     const body = renderDocumentBody(["<p>O1</p>", "<p>O2</p>"], ["<p>T1</p>", "<p>T2</p>"], [n1, n2]);
     assertOrder(
       body,
       '<main><div class="doc-grid"><div class="panel-label">Original</div>',
       '<div class="panel-label">Translation</div>',
-      '<div class="cell orig"><p>O1</p></div>',
+      '<div class="block-row"><div class="cell orig"><p>O1</p></div>',
       '<div class="rail"><p class="block-index">0</p></div>',
-      '<div class="cell"><p>T1</p></div>',
-      '<div class="cell orig"><p>O2</p></div>',
+      '<div class="cell"><p>T1</p></div></div>',
+      '<div class="block-row"><div class="cell orig"><p>O2</p></div>',
       '<div class="rail"><p class="block-index">1</p></div>',
-      '<div class="cell"><p>T2</p></div>',
+      '<div class="cell"><p>T2</p></div></div>',
     );
+    // One card wrapper per block row, for the phone layout to style.
+    assert.equal(body.match(/<div class="block-row">/g)?.length, 2);
     // The grid carries no editable data, e.g. the static build.
     assert.doesNotMatch(body, /data-original-path|data-block/);
   });
@@ -222,9 +224,9 @@ describe("renderDocumentBody", () => {
       blocks: [{ kind: "thematicBreak" as const, fingerprint: "0000000000000000", status: "complete" as const }],
     };
     const body = renderDocumentBody(["<hr>"], ["<hr>"], [n1], editable);
+    assert.match(body, /<div class="block-row block-row-divider"><div class="cell orig divider-row"><hr><\/div>/);
     assert.match(body, /<div class="rail rail-divider"><p class="block-index">0<\/p><\/div>/);
     assert.match(body, /<div class="cell divider-row"><hr><\/div>/);
-    assert.match(body, /<div class="cell orig divider-row"><hr><\/div>/);
     assert.doesNotMatch(body, /status-pill|block-cell|untranslated/);
   });
 

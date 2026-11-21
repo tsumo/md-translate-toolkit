@@ -223,7 +223,12 @@ ul.index {
 .doc-grid::after {
   right: 0;
 }
-.doc-grid > * {
+/* One wrapper per block row. On a desktop it dissolves into the grid (display: contents); on a phone it
+   becomes the block card. Its children are the grid items and keep the cell rules. */
+.block-row {
+  display: contents;
+}
+.block-row > * {
   position: relative;
   min-width: 0;
   overflow-wrap: break-word;
@@ -352,7 +357,8 @@ ul.index {
   cursor: text;
 }
 
-/* The editor card: accent border and a soft shadow while open. */
+/* The editor card: accent border and a soft shadow while open. It owns its text weight, because the phone
+   layout bolds the translation cell it sits in. */
 .inline-editor {
   display: flex;
   flex-direction: column;
@@ -362,6 +368,11 @@ ul.index {
   border-radius: 0.6rem;
   box-shadow: 0 4px 16px rgba(33, 30, 27, 0.12);
   padding: 0.75rem;
+  font-weight: 400;
+}
+/* The original reference strip: a phone-only restatement, since the desktop editor sits beside the original. */
+.editor-orig {
+  display: none;
 }
 .inline-editor textarea,
 .inline-editor select,
@@ -436,17 +447,173 @@ ul.index {
   color: var(--surface);
 }
 
-/* A narrow viewport stacks the two panels in one column. The full phone layout is its own ticket. */
+/* The phone layout: the index as single-column cards under the slim header band, the document as stacked
+   block cards (pill at the card start, muted original, bold translation), and the editor in the document
+   flow with the original restated above the field. */
 @media (max-width: 768px) {
-  .doc-grid {
+  body {
+    padding: 0 1rem;
+  }
+  .site-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.25rem;
+    height: auto;
+    margin: 0 -1rem;
+    padding: 0.75rem 1rem;
+  }
+  .header-summary {
+    text-align: left;
+  }
+  /* The document header: the breadcrumb on top, then the bar full-width with the caption under it. */
+  .site-header.doc-header {
+    height: auto;
+    gap: 0.5rem;
+  }
+  .header-progress {
+    flex-direction: column-reverse;
+    align-items: stretch;
+    gap: 0.375rem;
+  }
+  .header-progress .bar {
+    width: 100%;
+  }
+
+  /* The index: the page title lives in the header band; one card per row. */
+  main {
+    padding-top: 1.25rem;
+  }
+  main > h1,
+  .lede {
+    display: none;
+  }
+  ul.index {
     grid-template-columns: 1fr;
+    gap: 1rem;
+    margin-top: 0;
+  }
+  .index-card {
+    padding: 1rem 1.25rem 0.875rem;
+  }
+
+  /* Stacked block cards: the pill at the card start, the muted original, the bold translation. */
+  .doc-grid {
+    display: block;
+    margin-top: 1rem;
   }
   .doc-grid::before,
   .doc-grid::after,
-  .doc-grid .rail {
+  .doc-grid .panel-label,
+  .block-index {
     display: none;
   }
-  .header-progress .bar {
-    width: 8rem;
+  .block-row {
+    display: flex;
+    flex-direction: column;
+    gap: 0.375rem;
+    font-size: 0.8125rem;
+    background: var(--surface);
+    border: 1px solid var(--hairline);
+    border-radius: 0.75rem;
+    box-shadow: 0 2px 8px rgba(33, 30, 27, 0.06);
+    padding: 1rem 1.25rem;
+  }
+  .block-row + .block-row {
+    margin-top: 1rem;
+  }
+  .block-row .rail {
+    order: -1;
+    justify-content: flex-start;
+  }
+  .doc-grid .cell {
+    padding: 0;
+  }
+  /* Headings inside a card render at the card's body size, like the prototype. */
+  .doc-grid .cell h1,
+  .doc-grid .cell h2,
+  .doc-grid .cell h3,
+  .doc-grid .cell h4,
+  .doc-grid .cell h5,
+  .doc-grid .cell h6 {
+    font-size: 1em;
+  }
+  /* The bold translation; the muted original, regular even where UA styles bold a heading. */
+  .doc-grid .cell:not(.orig) {
+    font-weight: 600;
+  }
+  .doc-grid .cell.orig {
+    color: var(--ink-soft);
+    font-weight: 400;
+  }
+  /* Boxes and table bodies keep their regular weight; the untranslated text reads soft. */
+  .doc-grid .cell .untrans-box,
+  .doc-grid .cell pre,
+  .doc-grid .cell td {
+    font-weight: 400;
+  }
+  .doc-grid .cell .untrans-box {
+    color: var(--ink-soft);
+    font-size: 0.9375rem;
+  }
+  .doc-grid .cell.orig h1,
+  .doc-grid .cell.orig h2,
+  .doc-grid .cell.orig h3,
+  .doc-grid .cell.orig h4,
+  .doc-grid .cell.orig h5,
+  .doc-grid .cell.orig h6 {
+    font-weight: 400;
+  }
+  /* A divider keeps the bare rule, no card. */
+  .block-row-divider {
+    background: none;
+    border: 0;
+    box-shadow: none;
+    padding: 0.25rem 0;
+  }
+  .block-row-divider .rail {
+    display: none;
+  }
+
+  /* While a block is open in the editor, its card yields: the editor box is the row's content. */
+  .block-row.editing {
+    background: none;
+    border: 0;
+    box-shadow: none;
+    padding: 0;
+  }
+  .block-row.editing .cell.orig,
+  .block-row.editing .rail {
+    display: none;
+  }
+  /* The muted reference strip, styled like the card's original: soft ink, unbounded growth. */
+  .inline-editor .editor-orig {
+    display: block;
+    background: var(--panel-gray);
+    border-radius: 0.375rem;
+    padding: 0.625rem 0.875rem;
+    color: var(--ink-soft);
+    font-weight: 400;
+  }
+  .inline-editor .editor-orig > * {
+    margin: 0;
+  }
+  .doc-grid .inline-editor .editor-orig h1,
+  .doc-grid .inline-editor .editor-orig h2,
+  .doc-grid .inline-editor .editor-orig h3,
+  .doc-grid .inline-editor .editor-orig h4,
+  .doc-grid .inline-editor .editor-orig h5,
+  .doc-grid .inline-editor .editor-orig h6 {
+    font-weight: 400;
+  }
+  .editor-fields {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .editor-fields select,
+  .editor-fields input {
+    width: 100%;
+  }
+  .kbd-hint {
+    display: none;
   }
 }

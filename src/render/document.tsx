@@ -9,7 +9,9 @@ import {
   ATTR_ORIGINAL_PATH,
   ATTR_STATUS,
   ATTR_STATUSES,
+  BLOCK_ROW_CLASS,
   CELL_CLASS,
+  ORIG_CLASS,
   PILL_CLASS,
 } from "../dom-names.js";
 import { encodePathSegments } from "../paths.js";
@@ -209,8 +211,9 @@ interface BodyProps {
   editable?: { originalPath: string; blocks: BlockEntry[] };
 }
 
-/** One row per block: the original cell, the rail, and the translation cell. The grid keeps the two
- * panels co-scrolling, so a block pair never loses alignment. */
+/** One row per block: the original cell, the rail, and the translation cell, wrapped in one element so the
+ * phone layout can style the row as a card. The grid keeps the two panels co-scrolling, so a block pair
+ * never loses alignment. */
 function DocumentBody({ originalHtml, translationHtml, translationNodes, editable }: BodyProps) {
   const rowCount = Math.max(originalHtml.length, translationHtml.length);
   const rows = [];
@@ -219,15 +222,19 @@ function DocumentBody({ originalHtml, translationHtml, translationNodes, editabl
     const block = editable?.blocks[i];
     const divider = node?.type === "thematicBreak";
     rows.push(
-      <div class={divider ? "cell orig divider-row" : "cell orig"}>{raw(originalHtml[i] ?? "")}</div>,
-      <RailCell index={i} block={block} divider={divider} />,
-      <TranslationCell
-        index={i}
-        html={translationHtml[i] ?? ""}
-        node={node}
-        block={block}
-        editable={Boolean(editable)}
-      />,
+      <div class={divider ? `${BLOCK_ROW_CLASS} block-row-divider` : BLOCK_ROW_CLASS}>
+        <div class={divider ? `cell ${ORIG_CLASS} divider-row` : `cell ${ORIG_CLASS}`}>
+          {raw(originalHtml[i] ?? "")}
+        </div>
+        <RailCell index={i} block={block} divider={divider} />
+        <TranslationCell
+          index={i}
+          html={translationHtml[i] ?? ""}
+          node={node}
+          block={block}
+          editable={Boolean(editable)}
+        />
+      </div>,
     );
   }
   const containerData = editable
