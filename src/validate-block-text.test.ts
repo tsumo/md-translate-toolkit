@@ -35,6 +35,21 @@ describe("validateBlockText", () => {
     assert.deepEqual(validateBlockText("```js\nкод();\n```", "code"), ACCEPTED);
   });
 
+  it("accepts a raw html block of pure markup, which carries structure but no visible text", () => {
+    assert.deepEqual(validateBlockText('<!-- p. 13 --><a id="page-13"></a>', "html"), ACCEPTED);
+  });
+
+  it("accepts a translated raw html block", () => {
+    assert.deepEqual(validateBlockText("<div>Переведённый текст</div>", "html"), ACCEPTED);
+  });
+
+  it("rejects a paragraph submitted for an html position", () => {
+    const result = validateBlockText("Просто абзац.", "html");
+    assert.ok(!result.ok);
+    assert.match(result.error, /a paragraph block/);
+    assert.match(result.error, /an html\./);
+  });
+
   it("accepts one block with blank lines around it", () => {
     assert.deepEqual(validateBlockText("\n\nПереведённый абзац.\n\n", "paragraph"), ACCEPTED);
   });

@@ -31,9 +31,12 @@ export function validateBlockText(text: string, expectedKind: string): { ok: tru
   }
   const [block] = blocks;
   if (block.type !== expectedKind) {
+    // The article follows the sound, not the letter: "an html", but "a paragraph".
+    const an = new Set(["html"]);
+    const named = (kind: string) => (an.has(kind) ? `an ${kind}` : `a ${kind}`);
     return {
       ok: false,
-      error: `The text forms a ${block.type} block, but the block at this position is a ${expectedKind}.`,
+      error: `The text forms ${named(block.type)} block, but the block at this position is ${named(expectedKind)}.`,
     };
   }
   if (!hasText(block)) {

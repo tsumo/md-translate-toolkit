@@ -60,6 +60,16 @@ describe("isInvalidCompletion", () => {
     assert.equal(isInvalidCompletion("in-progress", translated), false);
     assert.equal(isInvalidCompletion("needs-attention", translated), false);
   });
+
+  it("allows verified on a structural html block, which holds no placeholder", () => {
+    const [structural] = parseBlocks('<!-- p. 13 --><a id="page-13"></a>');
+    assert.equal(isInvalidCompletion("verified", structural), false);
+  });
+
+  it("refuses verified while a translatable html block still carries the marker attribute", () => {
+    const [placeholder] = parseBlocks(`<div data-untranslated="${PLACEHOLDER_MARKER}">Some text</div>`);
+    assert.equal(isInvalidCompletion("verified", placeholder), true);
+  });
 });
 
 describe("deriveFileStatus", () => {

@@ -217,17 +217,25 @@ describe("renderDocumentBody", () => {
     assertOrder(body, "<ul>", "untrans-tag");
   });
 
-  it("renders a plain centered number, not a pill or cell styling, for a thematic-break row", () => {
+  it("renders a centered status pill, colored by its toolkit-owned status, for a thematic-break row", () => {
     const [n1] = parseBlocks("---");
     const editable = {
       originalPath: "reviewed/Simple.md",
-      blocks: [{ kind: "thematicBreak" as const, fingerprint: "0000000000000000", status: "complete" as const }],
+      blocks: [{ kind: "thematicBreak" as const, fingerprint: "0000000000000000", status: "verified" as const }],
     };
     const body = renderDocumentBody(["<hr>"], ["<hr>"], [n1], editable);
     assert.match(body, /<div class="block-row block-row-divider"><div class="cell orig divider-row"><hr><\/div>/);
-    assert.match(body, /<div class="rail rail-divider"><p class="block-index">0<\/p><\/div>/);
+    assert.match(body, /<div class="rail rail-divider"><span class="status-pill status-verified"/);
     assert.match(body, /<div class="cell divider-row"><hr><\/div>/);
-    assert.doesNotMatch(body, /status-pill|block-cell|untranslated/);
+    // The pill informs, but the editor never opens for a divider.
+    assert.doesNotMatch(body, /block-cell|untranslated/);
+  });
+
+  it("renders a plain centered number for a thematic-break row with no manifest entry", () => {
+    const [n1] = parseBlocks("---");
+    const body = renderDocumentBody(["<hr>"], ["<hr>"], [n1]);
+    assert.match(body, /<div class="rail rail-divider"><p class="block-index">0<\/p><\/div>/);
+    assert.doesNotMatch(body, /status-pill/);
   });
 
   it("renders no pill and no editing markup when editable info is omitted, e.g. the static build", () => {
@@ -252,6 +260,40 @@ describe("renderDocumentBody", () => {
     };
     const body = renderDocumentBody(["<p>O1</p>"], ["<p>T1</p>"], [n1], editable);
     assert.match(body, /data-comment="check &quot;this&quot; &amp; that"/);
+  });
+
+  it("renders an html row as muted source in the dev server, still openable in the editor", () => {
+    const [orig] = parseBlocks('<!-- p. 13 --><a id="page-13"></a>');
+    const editable = {
+      originalPath: "reviewed/Simple.md",
+      blocks: [{ kind: "html" as const, fingerprint: "0000000000000000", status: "verified" as const }],
+    };
+    const source = '<!-- p. 13 --><a id="page-13"></a>';
+    const body = renderDocumentBody([source], [source], [orig], editable, [orig]);
+    assert.match(body, /data-block="0"/);
+    // The markup is escaped text, never rendered raw, so the row is never a blank mystery.
+    assert.doesNotMatch(body, /<a id="page-13"><\/a>/);
+    assert.match(body, /&lt;a id=/);
+  });
+
+  it("renders an html row as real markup in the static build, with no muted source", () => {
+    const [orig] = parseBlocks('<!-- p. 13 --><a id="page-13"></a>');
+    const source = '<!-- p. 13 --><a id="page-13"></a>';
+    const body = renderDocumentBody([source], [source], [orig], undefined, [orig]);
+    assert.match(body, /<a id="page-13"><\/a>/);
+    assert.doesNotMatch(body, /html-source/);
+  });
+
+  it("shows a translatable html placeholder as muted source inside the untranslated box", () => {
+    const [original] = parseBlocks("<div>Some text</div>");
+    const [placeholderNode] = parseBlocks(stringifyBlocks([placeholderFor(original)]));
+    const editable = {
+      originalPath: "reviewed/Simple.md",
+      blocks: [{ kind: "html" as const, fingerprint: "0000000000000000", status: "in-progress" as const }],
+    };
+    const body = renderDocumentBody(["<div>O</div>"], ["<div>T</div>"], [placeholderNode], editable, [original]);
+    assertOrder(body, "untrans-box", "html-source", "untrans-tag");
+    assert.match(body, /data-untranslated=&quot;\(не переведено\)&quot;/);
   });
 });
 

@@ -27,8 +27,8 @@ lets each document move to a newer upstream version at its own time.
 ### ADR-002: Translation unit
 
 The toolkit tracks and shows translations one block at a time, not one file at a time. A block is a top-level
-Markdown element, such as a heading, a paragraph, a list, a table, a quote, a code block, or a divider. A whole
-list is one block. The toolkit does not match the items inside a list on their own. Blocks are small enough to
+Markdown element, such as a heading, a paragraph, a list, a table, a quote, a code block, a divider, or raw HTML.
+A whole list is one block. The toolkit does not match the items inside a list on their own. Blocks are small enough to
 track progress and upstream changes in detail.
 
 ### ADR-003: One translation file per document
@@ -40,8 +40,9 @@ will be very large. They will have thousands of blocks and large git diffs. The 
 ### ADR-004: No vendoring
 
 A consumer project never commits original documents. The originals stay in a local cache that git ignores. The
-toolkit downloads each original from upstream at its pinned commit when it needs the file. There is one
-exception. Each placeholder in a translation file holds a short preview of its original text (ADR-006).
+toolkit downloads each original from upstream at its pinned commit when it needs the file. There are exceptions.
+Each placeholder in a translation file holds a short preview of its original text (ADR-006). A translation file
+also holds raw HTML blocks unchanged (ADR-018).
 
 ### ADR-005: Files are linked through the manifest
 
@@ -56,8 +57,9 @@ files keep the original path, so the toolkit must quote and encode paths with sp
 When the toolkit adds a document, it creates the translation file with one placeholder for every block of the
 original, in the same order. This keeps the translation aligned with the original from the start. Each
 placeholder holds a fixed marker and a short preview of the original text, so a translator can read the file
-without the original. A block is untranslated while its text starts with the marker. This check is separate
-from the block status (ADR-010).
+without the original. A raw HTML placeholder holds the original markup, with the marker as an attribute on its
+first tag, because a person translates such a block in place. A block is untranslated while its text carries the
+marker. This check is separate from the block status (ADR-010).
 
 ### ADR-007: Translators edit in their own editor or in the dev server
 
@@ -82,6 +84,7 @@ structure in both files. A consumer project should run `build` in CI, so a drift
 ### ADR-010: Block status is stored, document status is derived
 
 Each block stores its own status, and a person sets it, because complete and verified are human judgments. A
+block with no translatable content is the exception. The toolkit owns its status (ADR-018). A
 block is in-progress (the start state), complete, verified, or needs-attention with a comment. The toolkit
 derives the status of a document from its blocks and does not store it. One needs-attention block makes the
 whole document needs-attention. A document is complete or verified only when every block is.
@@ -135,3 +138,11 @@ so two tabs that change it at the same time can overwrite each other.
 A block cannot be complete or verified while it still holds a placeholder. The `set-status` command and the dev
 server refuse this change. The `build` command fails on a manifest that breaks the rule, because a person can
 edit a manifest by hand. Other tools and readers trust these two states, so they must not be false.
+
+### ADR-018: Blocks with no translatable content are verified
+
+Some blocks hold no text a translator could translate. A divider has no text. A raw HTML block sometimes holds
+nothing but markup, such as a page anchor. The toolkit owns the status of these blocks. It sets them to verified
+from the start, and a sync refreshes their text from upstream, so a translation never holds stale markup. When
+upstream changes such a block, the toolkit flags it for a person to re-check (ADR-008). A needs-attention flag
+on one stays until a person resolves it.

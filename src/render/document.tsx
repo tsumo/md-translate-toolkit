@@ -146,15 +146,17 @@ function StatusPill({ index, block }: { index: number; block: BlockEntry }) {
 }
 
 function RailCell({ index, block, divider }: { index: number; block?: BlockEntry; divider: boolean }) {
-  if (block && !divider)
+  const className = divider ? "rail rail-divider" : "rail";
+  if (!block) {
     return (
-      <div class="rail">
-        <StatusPill index={index} block={block} />
+      <div class={className}>
+        <p class="block-index">{index}</p>
       </div>
     );
+  }
   return (
-    <div class={divider ? "rail rail-divider" : "rail"}>
-      <p class="block-index">{index}</p>
+    <div class={className}>
+      <StatusPill index={index} block={block} />
     </div>
   );
 }
@@ -185,20 +187,22 @@ function TranslationCell({
   ]
     .filter(Boolean)
     .join(" ");
+  // Dev server only: a raw HTML block usually renders nothing, so it shows its markup as muted source.
+  const content = editable && node?.type === "html" ? <pre class="html-source">{node.value}</pre> : raw(html);
   return (
     <div class={className || undefined} data-block={openable ? index : undefined}>
       {flagged ? (
         <>
-          <div class="flag-box">{raw(html)}</div>
+          <div class="flag-box">{content}</div>
           {block?.status_comment ? <p class="flag-note">Needs attention — {block.status_comment}</p> : null}
         </>
       ) : untranslated ? (
         <div class="untrans-box">
-          {raw(html)}
+          {content}
           <p class="untrans-tag">UNTRANSLATED</p>
         </div>
       ) : (
-        raw(html)
+        content
       )}
     </div>
   );
@@ -206,6 +210,7 @@ function TranslationCell({
 
 interface BodyProps {
   originalHtml: string[];
+  originalNodes?: RootContent[];
   translationHtml: string[];
   translationNodes: RootContent[];
   editable?: { originalPath: string; blocks: BlockEntry[] };
@@ -214,17 +219,22 @@ interface BodyProps {
 /** One row per block: the original cell, the rail, and the translation cell, wrapped in one element so the
  * phone layout can style the row as a card. The grid keeps the two panels co-scrolling, so a block pair
  * never loses alignment. */
-function DocumentBody({ originalHtml, translationHtml, translationNodes, editable }: BodyProps) {
+function DocumentBody({ originalHtml, originalNodes, translationHtml, translationNodes, editable }: BodyProps) {
   const rowCount = Math.max(originalHtml.length, translationHtml.length);
   const rows = [];
   for (let i = 0; i < rowCount; i++) {
     const node = translationNodes[i];
+    const origNode = originalNodes?.[i];
     const block = editable?.blocks[i];
     const divider = node?.type === "thematicBreak";
     rows.push(
       <div class={divider ? `${BLOCK_ROW_CLASS} block-row-divider` : BLOCK_ROW_CLASS}>
         <div class={divider ? `cell ${ORIG_CLASS} divider-row` : `cell ${ORIG_CLASS}`}>
-          {raw(originalHtml[i] ?? "")}
+          {editable && origNode?.type === "html" ? (
+            <pre class="html-source">{origNode.value}</pre>
+          ) : (
+            raw(originalHtml[i] ?? "")
+          )}
         </div>
         <RailCell index={i} block={block} divider={divider} />
         <TranslationCell
@@ -260,10 +270,12 @@ export function renderDocumentBody(
   translationHtml: string[],
   translationNodes: RootContent[],
   editable?: { originalPath: string; blocks: BlockEntry[] },
+  originalNodes?: RootContent[],
 ): string {
   return String(
     <DocumentBody
       originalHtml={originalHtml}
+      originalNodes={originalNodes}
       translationHtml={translationHtml}
       translationNodes={translationNodes}
       editable={editable}
@@ -279,10 +291,11 @@ export function renderDocumentPage(
   attribution: Attribution,
   options: PageOptions,
   editable = false,
+  originalNodes?: RootContent[],
 ): string {
   const translationHtml = documentToBlockHtml(translationNodes);
   const editableInfo = editable ? { originalPath: entry.original_path, blocks: entry.blocks } : undefined;
-  const body = renderDocumentBody(originalHtml, translationHtml, translationNodes, editableInfo);
+  const body = renderDocumentBody(originalHtml, translationHtml, translationNodes, editableInfo, originalNodes);
   const header = renderDocumentHeader(backHref, entry, progressFromNodes(translationNodes));
   return pageWrapper(
     entry.original_path,

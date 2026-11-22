@@ -9,7 +9,7 @@ import remarkGfm from "remark-gfm";
 import remarkStringify from "remark-stringify";
 import { unified } from "unified";
 import { parseBlocks } from "./parse-blocks.js";
-import { isUntranslated, PLACEHOLDER_MARKER } from "./placeholder.js";
+import { hasTranslatableContent, injectHtmlMarker, isUntranslated, PLACEHOLDER_MARKER } from "./placeholder.js";
 import type { BlockEntry } from "./types.js";
 
 /** Block data that comes from content only. It has no status. */
@@ -105,13 +105,24 @@ export function placeholderFor(node: RootContent): RootContent {
     }
     case "thematicBreak":
       return { type: "thematicBreak" };
+    case "html": {
+      // A block with no translatable content passes through unchanged (ADR-018). A translatable placeholder
+      // embeds the marker as an attribute on the first tag (ADR-006), so any HTML block shape still re-parses
+      // as one block. A value with no open tag to carry it stays unsupported until seen in a real file.
+      if (!hasTranslatableContent(node)) return node;
+      const marked = injectHtmlMarker(node.value);
+      if (marked === undefined) {
+        throw new Error(`placeholderFor: unsupported html block shape — add support once seen in a real file.`);
+      }
+      return { type: "html", value: marked };
+    }
     default:
       throw new Error(`placeholderFor: unsupported block kind "${node.type}" — add support once seen in a real file.`);
   }
 }
 
 export function progressFromNodes(nodes: RootContent[]): { translated: number; total: number } {
-  const content = nodes.filter((node) => node.type !== "thematicBreak");
+  const content = nodes.filter((node) => hasTranslatableContent(node));
   const translated = content.filter((node) => !isUntranslated(node)).length;
   return { translated, total: content.length };
 }

@@ -7,6 +7,10 @@ import type { BlockEntry } from "./types.js";
 
 const TODAY = "2026-09-02";
 
+const [paraNode] = parseBlocks("A paragraph.");
+const [anchorNode] = parseBlocks('<!-- p. 13 --><a id="page-13"></a>');
+const [dividerNode] = parseBlocks("---");
+
 function block(status: BlockEntry["status"], comment?: string): BlockEntry {
   return { kind: "paragraph", fingerprint: "0000000000000000", status, status_comment: comment };
 }
@@ -15,16 +19,34 @@ describe("resolveStatus", () => {
   it("carries an unchanged block's status and comment forward untouched", () => {
     const diffEntry: DiffEntry = { kind: "unchanged", oldIndex: 0, newIndex: 0 };
     const oldBlocks = [block("needs-attention", "existing note")];
-    assert.deepEqual(resolveStatus(diffEntry, oldBlocks, TODAY), {
+    assert.deepEqual(resolveStatus(diffEntry, oldBlocks, TODAY, paraNode), {
       status: "needs-attention",
       status_comment: "existing note",
+    });
+  });
+
+  it("normalizes an unchanged structural block to verified, whatever its stored status (ADR-018)", () => {
+    const diffEntry: DiffEntry = { kind: "unchanged", oldIndex: 0, newIndex: 0 };
+    const oldBlocks = [block("in-progress", "kept note")];
+    assert.deepEqual(resolveStatus(diffEntry, oldBlocks, TODAY, anchorNode), {
+      status: "verified",
+      status_comment: "kept note",
+    });
+  });
+
+  it("leaves a needs-attention flag on an unchanged structural block alone, for a person to resolve", () => {
+    const diffEntry: DiffEntry = { kind: "unchanged", oldIndex: 0, newIndex: 0 };
+    const oldBlocks = [block("needs-attention", "check the page number")];
+    assert.deepEqual(resolveStatus(diffEntry, oldBlocks, TODAY, dividerNode), {
+      status: "needs-attention",
+      status_comment: "check the page number",
     });
   });
 
   it("downgrades a changed block from complete to needs-attention with an auto comment", () => {
     const diffEntry: DiffEntry = { kind: "changed", oldIndex: 0, newIndex: 0 };
     const oldBlocks = [block("complete")];
-    assert.deepEqual(resolveStatus(diffEntry, oldBlocks, TODAY), {
+    assert.deepEqual(resolveStatus(diffEntry, oldBlocks, TODAY, paraNode), {
       status: "needs-attention",
       status_comment: "Upstream content changed on 2026-09-02 — re-check against source.",
     });
@@ -33,7 +55,16 @@ describe("resolveStatus", () => {
   it("downgrades a changed block from verified to needs-attention with an auto comment", () => {
     const diffEntry: DiffEntry = { kind: "changed", oldIndex: 0, newIndex: 0 };
     const oldBlocks = [block("verified")];
-    assert.deepEqual(resolveStatus(diffEntry, oldBlocks, TODAY), {
+    assert.deepEqual(resolveStatus(diffEntry, oldBlocks, TODAY, paraNode), {
+      status: "needs-attention",
+      status_comment: "Upstream content changed on 2026-09-02 — re-check against source.",
+    });
+  });
+
+  it("flags a changed structural block for a person, whatever its stored status", () => {
+    const diffEntry: DiffEntry = { kind: "changed", oldIndex: 0, newIndex: 0 };
+    const oldBlocks = [block("in-progress")];
+    assert.deepEqual(resolveStatus(diffEntry, oldBlocks, TODAY, anchorNode), {
       status: "needs-attention",
       status_comment: "Upstream content changed on 2026-09-02 — re-check against source.",
     });
@@ -42,7 +73,7 @@ describe("resolveStatus", () => {
   it("leaves a changed block already needs-attention as-is, keeping its own comment", () => {
     const diffEntry: DiffEntry = { kind: "changed", oldIndex: 0, newIndex: 0 };
     const oldBlocks = [block("needs-attention", "pre-existing human comment")];
-    assert.deepEqual(resolveStatus(diffEntry, oldBlocks, TODAY), {
+    assert.deepEqual(resolveStatus(diffEntry, oldBlocks, TODAY, paraNode), {
       status: "needs-attention",
       status_comment: "pre-existing human comment",
     });
@@ -51,12 +82,20 @@ describe("resolveStatus", () => {
   it("leaves a changed block already in-progress as-is", () => {
     const diffEntry: DiffEntry = { kind: "changed", oldIndex: 0, newIndex: 0 };
     const oldBlocks = [block("in-progress")];
-    assert.deepEqual(resolveStatus(diffEntry, oldBlocks, TODAY), { status: "in-progress", status_comment: undefined });
+    assert.deepEqual(resolveStatus(diffEntry, oldBlocks, TODAY, paraNode), {
+      status: "in-progress",
+      status_comment: undefined,
+    });
   });
 
   it("gives an added block the in-progress default, with no prior block to inherit from", () => {
     const diffEntry: DiffEntry = { kind: "added", newIndex: 0 };
-    assert.deepEqual(resolveStatus(diffEntry, [], TODAY), { status: "in-progress" });
+    assert.deepEqual(resolveStatus(diffEntry, [], TODAY, paraNode), { status: "in-progress" });
+  });
+
+  it("gives an added structural block verified from the start", () => {
+    const diffEntry: DiffEntry = { kind: "added", newIndex: 0 };
+    assert.deepEqual(resolveStatus(diffEntry, [], TODAY, anchorNode), { status: "verified" });
   });
 });
 
@@ -94,6 +133,25 @@ describe("applyResync", () => {
     const text = translationNodes[0];
     assert.equal(text.type, "paragraph");
     assert.equal(blocks[0].status, "in-progress");
+  });
+
+  it("refreshes a changed structural block's translation from upstream, since it holds nothing of the person's own", () => {
+    const [oldTranslation] = parseBlocks('<!-- p. 12 --><a id="page-12"></a>');
+    const [newNode] = parseBlocks('<!-- p. 13 --><a id="page-13"></a>');
+    const diff: DiffEntry[] = [{ kind: "changed", oldIndex: 0, newIndex: 0 }];
+    const { translationNodes, blocks } = applyResync(diff, [block("verified")], [oldTranslation], [newNode], TODAY);
+
+    assert.equal(translationNodes[0], newNode);
+    assert.equal(blocks[0].status, "needs-attention");
+  });
+
+  it("gives an added structural block its upstream markup with no marker, already verified", () => {
+    const [newNode] = parseBlocks('<!-- p. 13 --><a id="page-13"></a>');
+    const diff: DiffEntry[] = [{ kind: "added", newIndex: 0 }];
+    const { translationNodes, blocks } = applyResync(diff, [], [], [newNode], TODAY);
+
+    assert.deepEqual(translationNodes[0], newNode);
+    assert.equal(blocks[0].status, "verified");
   });
 
   it("drops a removed block's translation entirely, with no gap in the output", () => {

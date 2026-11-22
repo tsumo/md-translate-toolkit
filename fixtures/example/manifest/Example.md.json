@@ -2,7 +2,7 @@
   "original_path": "Example.md",
   "source_repo": "example-org/example-repo",
   "source_commit": "e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4",
-  "source_sha256": "5f7ef7e5417e9fefa753f0e2adf261dd79fd691b67342f15981a4583ccced7fa",
+  "source_sha256": "bd0a1ad37ddf98f273f11c617147884c63b3c8f28358f0e62eed7f14644b84af",
   "translation_path": "translations/Example.md",
   "last_synced": "2025-01-15",
   "blocks": [
@@ -41,6 +41,16 @@
       "kind": "thematicBreak",
       "fingerprint": "f52d711103d50a43",
       "status": "verified"
+    },
+    {
+      "kind": "html",
+      "fingerprint": "e3685e40a33c3b98",
+      "status": "verified"
+    },
+    {
+      "kind": "html",
+      "fingerprint": "ba83d5262e850191",
+      "status": "in-progress"
     }
   ]
 }

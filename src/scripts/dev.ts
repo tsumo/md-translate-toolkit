@@ -12,6 +12,7 @@ import { createServer } from "node:http";
 import { join } from "node:path";
 import { parseArgs } from "node:util";
 import { buildSync } from "esbuild";
+import type { RootContent } from "mdast";
 import { rawBlockSource, replaceBlockSource } from "../block-source.js";
 import { fetchOriginal } from "../cache.js";
 import { loadConfig } from "../config.js";
@@ -103,19 +104,20 @@ export async function runDev(argv: string[]): Promise<void> {
   const clientBundle = bundleClient();
   const attribution = { licenseName: config.licenseName, licenseUrl: config.licenseUrl };
 
-  // Block HTML of each pinned original, keyed by commit and path. A commit never changes,
+  // Block HTML and nodes of each pinned original, keyed by commit and path. A commit never changes,
   // so only a change in the originals cache clears an entry.
-  const originalHtmlCache = new Map<string, string[]>();
+  const originalRenderCache = new Map<string, { html: string[]; nodes: RootContent[] }>();
 
-  async function renderOriginalHtml(entry: ManifestEntry): Promise<string[]> {
+  async function renderOriginal(entry: ManifestEntry): Promise<{ html: string[]; nodes: RootContent[] }> {
     const key = `${entry.source_commit}:${entry.original_path}`;
-    const cached = originalHtmlCache.get(key);
+    const cached = originalRenderCache.get(key);
     if (cached) return cached;
 
     const original = await fetchOriginal(entry.source_repo, entry.source_commit, entry.original_path, config.cacheDir);
-    const html = documentToBlockHtml(parseBlocks(original));
-    originalHtmlCache.set(key, html);
-    return html;
+    const nodes = parseBlocks(original);
+    const rendered = { html: documentToBlockHtml(nodes), nodes };
+    originalRenderCache.set(key, rendered);
+    return rendered;
   }
 
   const server = createServer(async (req, res) => {
@@ -164,15 +166,16 @@ export async function runDev(argv: string[]): Promise<void> {
         const manifestPath = manifestPathFor(originalPath, config.manifestDir);
         const entry = readManifestEntry(manifestPath);
         const translationNodes = parseBlocks(readFileSync(entry.translation_path, "utf-8"));
-        const originalHtml = await renderOriginalHtml(entry);
+        const original = await renderOriginal(entry);
         const page = renderDocumentPage(
           entry,
-          originalHtml,
+          original.html,
           translationNodes,
           "/",
           attribution,
           { stylesheetHref: STYLESHEET_HREF, extraBodyHtml: CLIENT_SCRIPT_TAG },
           true,
+          original.nodes,
         );
         res.writeHead(200, { "content-type": "text/html; charset=utf-8" });
         res.end(page);
@@ -255,7 +258,7 @@ export async function runDev(argv: string[]): Promise<void> {
   watchDirectory(config.translationsDir, broadcastReload);
   watchDirectory(config.manifestDir, broadcastReload);
   watchDirectory(config.cacheDir, () => {
-    originalHtmlCache.clear();
+    originalRenderCache.clear();
     broadcastReload();
   });
 

@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { toString as nodeToString } from "mdast-util-to-string";
 import { parseBlocks } from "./parse-blocks.js";
-import { isUntranslated, PLACEHOLDER_MARKER } from "./placeholder.js";
+import { hasTranslatableContent, isUntranslated, PLACEHOLDER_MARKER } from "./placeholder.js";
 import { fingerprintBlock, placeholderFor, splitBlocks, stringifyBlocks, translationProgress } from "./split-blocks.js";
 
 describe("fingerprintBlock", () => {
@@ -96,8 +96,56 @@ describe("placeholderFor", () => {
     assert.deepEqual(placeholderFor(node), { type: "thematicBreak" });
   });
 
+  it("passes an html block of only markup through unchanged (ADR-018)", () => {
+    const [node] = parseBlocks('<!-- p. 13 --><a id="page-13"></a>');
+    assert.deepEqual(placeholderFor(node), node);
+  });
+
+  it("embeds the marker as an attribute on a translatable html block's first tag", () => {
+    const [node] = parseBlocks('<div class="spell">\nSome text\n</div>');
+    const placeholder = placeholderFor(node);
+    assert.ok(placeholder.type === "html");
+    assert.ok(placeholder.value.startsWith('<div class="spell" data-untranslated="(не переведено)">'));
+    assert.ok(placeholder.value.endsWith("Some text\n</div>"));
+  });
+
+  it("injects the marker before the slash of a self-closing first tag", () => {
+    const placeholder = placeholderFor({ type: "html", value: '<hr class="sep"/>Some text' });
+    assert.ok(placeholder.type === "html");
+    assert.match(placeholder.value, /^<hr class="sep" data-untranslated="\(не переведено\)" \/>/);
+  });
+
+  it("round-trips a translatable html placeholder as one html block, so positions keep matching", () => {
+    const [node] = parseBlocks('<div class="spell">\nSome text\n</div>');
+    const [reparsed] = parseBlocks(stringifyBlocks([placeholderFor(node)]));
+    assert.equal(reparsed.type, "html");
+    assert.equal(isUntranslated(reparsed), true);
+  });
+
+  it("round-trips a pre block placeholder as one html block, with the marker inside its opening tag", () => {
+    const [node] = parseBlocks('<pre class="snippet">\ncode();\n</pre>');
+    const [reparsed] = parseBlocks(stringifyBlocks([placeholderFor(node)]));
+    assert.equal(reparsed.type, "html");
+    assert.equal(isUntranslated(reparsed), true);
+    assert.ok(reparsed.type === "html" && reparsed.value.endsWith("code();\n</pre>"));
+  });
+
+  it("round-trips a placeholder of a comment-fused line as one html block, marker on the tag after the comment", () => {
+    const [node] = parseBlocks("<!-- p. 13 --><div>Some text</div>");
+    const [reparsed] = parseBlocks(stringifyBlocks([placeholderFor(node)]));
+    assert.equal(reparsed.type, "html");
+    assert.ok(reparsed.type === "html" && reparsed.value.includes("<div data-untranslated="));
+  });
+
   it("throws for an unsupported block kind", () => {
-    assert.throws(() => placeholderFor({ type: "html", value: "<div></div>" }), /unsupported block kind/);
+    assert.throws(
+      () => placeholderFor({ type: "definition", identifier: "ref", url: "https://example.com", title: null }),
+      /unsupported block kind/,
+    );
+  });
+
+  it("throws for a translatable html value with no open tag to carry the marker", () => {
+    assert.throws(() => placeholderFor({ type: "html", value: "</div>\nSome text" }), /unsupported html block shape/);
   });
 });
 
@@ -124,6 +172,45 @@ describe("isUntranslated", () => {
     assert.equal(isUntranslated(untranslated), true);
     assert.equal(isUntranslated(translated), false);
   });
+
+  it("detects the marker attribute on an html block's first tag", () => {
+    const [untranslated] = parseBlocks(`<div data-untranslated="${PLACEHOLDER_MARKER}">Some text</div>`);
+    assert.equal(isUntranslated(untranslated), true);
+    const [translated] = parseBlocks("<div>Переведённый текст</div>");
+    assert.equal(isUntranslated(translated), false);
+  });
+
+  it("is false for an html block of pure markup", () => {
+    const [node] = parseBlocks('<!-- p. 13 --><a id="page-13"></a>');
+    assert.equal(isUntranslated(node), false);
+  });
+});
+
+describe("hasTranslatableContent", () => {
+  it("is false for a divider", () => {
+    const [node] = parseBlocks("---");
+    assert.equal(hasTranslatableContent(node), false);
+  });
+
+  it("is false for an html block of only comments and tags", () => {
+    const [node] = parseBlocks('<!-- p. 13 --><a id="page-13"></a>');
+    assert.equal(hasTranslatableContent(node), false);
+  });
+
+  it("is false for a standalone html comment", () => {
+    const [node] = parseBlocks("<!-- back cover -->");
+    assert.equal(hasTranslatableContent(node), false);
+  });
+
+  it("is true for an html block with text inside its tags", () => {
+    const [node] = parseBlocks("<div>Some text</div>");
+    assert.equal(hasTranslatableContent(node), true);
+  });
+
+  it("is true for every other block kind", () => {
+    const markdown = ["# H", "P.", "> Q.", "- L.", "| a | b |", "| - | - |", "```js", "code();", "```"].join("\n\n");
+    assert.ok(parseBlocks(markdown).every(hasTranslatableContent));
+  });
 });
 
 describe("translationProgress", () => {
@@ -137,6 +224,17 @@ describe("translationProgress", () => {
   it("excludes thematic breaks from the total, so they never count as untranslated", () => {
     const progress = translationProgress("---\n\n---\n\n---");
     assert.deepEqual(progress, { translated: 0, total: 0 });
+  });
+
+  it("excludes a structural html block from the total, like a divider (ADR-018)", () => {
+    const progress = translationProgress('---\n\n<!-- p. 13 --><a id="page-13"></a>');
+    assert.deepEqual(progress, { translated: 0, total: 0 });
+  });
+
+  it("counts a translatable html placeholder as untranslated until its marker is gone", () => {
+    const [node] = parseBlocks("<div>Some text</div>");
+    assert.deepEqual(translationProgress(stringifyBlocks([placeholderFor(node)])), { translated: 0, total: 1 });
+    assert.deepEqual(translationProgress("<div>Переведённый текст</div>"), { translated: 1, total: 1 });
   });
 
   it("counts a mix of translated and untranslated blocks correctly", () => {

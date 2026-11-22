@@ -265,6 +265,10 @@ ul.index {
   font-size: 0.85rem;
   overflow-x: auto;
 }
+/* Raw HTML blocks: dev server only, the markup as muted source, since it usually renders nothing. */
+.doc-grid .html-source {
+  color: var(--ink-soft);
+}
 .doc-grid table {
   width: 100%;
   border-collapse: collapse;
@@ -295,8 +299,8 @@ ul.index {
   display: flex;
   justify-content: center;
 }
-/* A divider row is pill-sized, like in the design: the plain index and the rule are both centered
-   on the row's midline, so the index sits centered on the rule. */
+/* A divider row is pill-sized, like in the design: the pill and the rule are both centered
+   on the row's midline, so the pill sits centered on the rule. */
 .doc-grid .rail-divider {
   height: 1.75rem;
   align-items: center;

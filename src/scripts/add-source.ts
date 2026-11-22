@@ -16,6 +16,7 @@ import { writeManifestEntry } from "../manifest-io.js";
 import { parseBlocks } from "../parse-blocks.js";
 import { manifestPathFor } from "../paths.js";
 import { canPrompt, pickUpstreamPath } from "../pick-path.js";
+import { hasTranslatableContent } from "../placeholder.js";
 import { fingerprintBlock, placeholderFor, stringifyBlocks } from "../split-blocks.js";
 import type { BlockEntry, ManifestEntry } from "../types.js";
 
@@ -50,7 +51,7 @@ export async function runAddSource(argv: string[]): Promise<void> {
   const blocks: BlockEntry[] = nodes.map((node) => ({
     kind: node.type,
     fingerprint: fingerprintBlock(node),
-    status: "in-progress",
+    status: hasTranslatableContent(node) ? "in-progress" : "verified",
   }));
 
   const translationPath = `${config.translationsDir}/${path}`;

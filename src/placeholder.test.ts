@@ -50,6 +50,15 @@ describe("prefillForBlock", () => {
   it("opens a table placeholder with a minimal one-column table", () => {
     assert.equal(prefillForBlock(placeholderSource("| a | b |\n| - | - |\n| 1 | 2 |")), "|  |\n| - |");
   });
+
+  it("opens a translatable html placeholder with its original markup, marker stripped, for translation in place", () => {
+    assert.equal(prefillForBlock(placeholderSource("<div>Some text</div>")), "<div>Some text</div>");
+  });
+
+  it("returns a structural html block as-is, whatever its status", () => {
+    const source = '<!-- p. 13 --><a id="page-13"></a>';
+    assert.equal(prefillForBlock(source), source);
+  });
 });
 
 describe("placeholder module client bundle", () => {
