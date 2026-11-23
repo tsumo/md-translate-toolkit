@@ -201,7 +201,11 @@ export async function runDev(argv: string[]): Promise<void> {
         const markdown = readFileSync(entry.translation_path, "utf-8");
         res.writeHead(200, { "content-type": "application/json; charset=utf-8" });
         res.end(
-          JSON.stringify({ text: rawBlockSource(markdown, parsed.block), kind: entry.blocks[parsed.block].kind }),
+          JSON.stringify({
+            text: rawBlockSource(markdown, parsed.block),
+            kind: entry.blocks[parsed.block].kind,
+            status: entry.blocks[parsed.block].status,
+          }),
         );
         return;
       }
@@ -234,8 +238,7 @@ export async function runDev(argv: string[]): Promise<void> {
         }
         const translationPath = entry.translation_path;
         const updatedMarkdown = replaceBlockSource(readFileSync(translationPath, "utf-8"), parsed.block, text);
-        // The status applies to the edited text, so the placeholder refusal reads the file as it would become.
-        const result = applyBlockStatus(entry, updatedMarkdown, [parsed.block], status, comment);
+        const result = applyBlockStatus(entry, [parsed.block], status, comment);
         if (!result.ok) {
           res.writeHead(400, { "content-type": "text/plain" });
           res.end(result.error);

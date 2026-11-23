@@ -51,7 +51,7 @@ export async function runAddSource(argv: string[]): Promise<void> {
   const blocks: BlockEntry[] = nodes.map((node) => ({
     kind: node.type,
     fingerprint: fingerprintBlock(node),
-    status: hasTranslatableContent(node) ? "in-progress" : "verified",
+    status: hasTranslatableContent(node) ? "untranslated" : "verified",
   }));
 
   const translationPath = `${config.translationsDir}/${path}`;

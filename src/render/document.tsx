@@ -15,13 +15,18 @@ import {
   PILL_CLASS,
 } from "../dom-names.js";
 import { encodePathSegments } from "../paths.js";
-import { isUntranslated } from "../placeholder.js";
-import { progressFromNodes } from "../split-blocks.js";
 import { VALID_BLOCK_STATUSES } from "../status.js";
 import type { BlockEntry, ManifestEntry } from "../types.js";
 import { documentToBlockHtml } from "./blocks.js";
 import { type PageOptions, pageWrapper } from "./page.js";
-import { barSegments, countingBlocks, documentCaption, needsAttentionCount, type Progress } from "./progress.js";
+import {
+  barSegments,
+  countingBlocks,
+  documentCaption,
+  needsAttentionCount,
+  type Progress,
+  progressOf,
+} from "./progress.js";
 
 export type Attribution = Pick<ResolvedConfig, "licenseName" | "licenseUrl">;
 
@@ -176,7 +181,7 @@ function TranslationCell({
 }) {
   const divider = node?.type === "thematicBreak";
   const flagged = !divider && block?.status === "needs-attention";
-  const untranslated = !divider && !flagged && node !== undefined && isUntranslated(node);
+  const untranslated = !divider && !flagged && block?.status === "untranslated";
   const openable = Boolean(editable && block && !divider);
   const className = [
     "cell",
@@ -208,24 +213,33 @@ function TranslationCell({
   );
 }
 
-interface BodyProps {
+export interface DocumentBodyProps {
   originalHtml: string[];
   originalNodes?: RootContent[];
   translationHtml: string[];
   translationNodes: RootContent[];
-  editable?: { originalPath: string; blocks: BlockEntry[] };
+  /** The manifest's blocks. Their statuses drive the untranslated and flagged styling in every mode. */
+  blocks?: BlockEntry[];
+  editable?: { originalPath: string };
 }
 
 /** One row per block: the original cell, the rail, and the translation cell, wrapped in one element so the
  * phone layout can style the row as a card. The grid keeps the two panels co-scrolling, so a block pair
  * never loses alignment. */
-function DocumentBody({ originalHtml, originalNodes, translationHtml, translationNodes, editable }: BodyProps) {
+function DocumentBody({
+  originalHtml,
+  originalNodes,
+  translationHtml,
+  translationNodes,
+  blocks,
+  editable,
+}: DocumentBodyProps) {
   const rowCount = Math.max(originalHtml.length, translationHtml.length);
   const rows = [];
   for (let i = 0; i < rowCount; i++) {
     const node = translationNodes[i];
     const origNode = originalNodes?.[i];
-    const block = editable?.blocks[i];
+    const block = blocks?.[i];
     const divider = node?.type === "thematicBreak";
     rows.push(
       <div class={divider ? `${BLOCK_ROW_CLASS} block-row-divider` : BLOCK_ROW_CLASS}>
@@ -236,7 +250,8 @@ function DocumentBody({ originalHtml, originalNodes, translationHtml, translatio
             raw(originalHtml[i] ?? "")
           )}
         </div>
-        <RailCell index={i} block={block} divider={divider} />
+        {/* The rail carries pills only in the dev server; the static build ships no pills. */}
+        <RailCell index={i} block={editable ? block : undefined} divider={divider} />
         <TranslationCell
           index={i}
           html={translationHtml[i] ?? ""}
@@ -265,22 +280,8 @@ function DocumentBody({ originalHtml, originalNodes, translationHtml, translatio
   );
 }
 
-export function renderDocumentBody(
-  originalHtml: string[],
-  translationHtml: string[],
-  translationNodes: RootContent[],
-  editable?: { originalPath: string; blocks: BlockEntry[] },
-  originalNodes?: RootContent[],
-): string {
-  return String(
-    <DocumentBody
-      originalHtml={originalHtml}
-      originalNodes={originalNodes}
-      translationHtml={translationHtml}
-      translationNodes={translationNodes}
-      editable={editable}
-    />,
-  );
+export function renderDocumentBody(props: DocumentBodyProps): string {
+  return String(<DocumentBody {...props} />);
 }
 
 export function renderDocumentPage(
@@ -294,9 +295,16 @@ export function renderDocumentPage(
   originalNodes?: RootContent[],
 ): string {
   const translationHtml = documentToBlockHtml(translationNodes);
-  const editableInfo = editable ? { originalPath: entry.original_path, blocks: entry.blocks } : undefined;
-  const body = renderDocumentBody(originalHtml, translationHtml, translationNodes, editableInfo, originalNodes);
-  const header = renderDocumentHeader(backHref, entry, progressFromNodes(translationNodes));
+  const editableInfo = editable ? { originalPath: entry.original_path } : undefined;
+  const body = renderDocumentBody({
+    originalHtml,
+    translationHtml,
+    translationNodes,
+    blocks: entry.blocks,
+    editable: editableInfo,
+    originalNodes,
+  });
+  const header = renderDocumentHeader(backHref, entry, progressOf(entry));
   return pageWrapper(
     entry.original_path,
     header + body + String(<Footer attribution={attribution} entry={entry} />),

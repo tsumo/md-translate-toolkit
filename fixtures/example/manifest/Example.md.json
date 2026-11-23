@@ -2,7 +2,7 @@
   "original_path": "Example.md",
   "source_repo": "example-org/example-repo",
   "source_commit": "e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4",
-  "source_sha256": "bd0a1ad37ddf98f273f11c617147884c63b3c8f28358f0e62eed7f14644b84af",
+  "source_sha256": "a1a6972c920c095f35ff522137ac50f176048ea02551b77ea74f73f803618b81",
   "translation_path": "translations/Example.md",
   "last_synced": "2025-01-15",
   "blocks": [
@@ -25,7 +25,7 @@
     {
       "kind": "list",
       "fingerprint": "10155cebf0d229f2",
-      "status": "in-progress"
+      "status": "untranslated"
     },
     {
       "kind": "table",
@@ -50,6 +50,11 @@
     {
       "kind": "html",
       "fingerprint": "ba83d5262e850191",
+      "status": "untranslated"
+    },
+    {
+      "kind": "paragraph",
+      "fingerprint": "f33acfaaee0e37a7",
       "status": "in-progress"
     }
   ]

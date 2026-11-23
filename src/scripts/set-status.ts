@@ -1,13 +1,11 @@
 /**
- * Sets the status of blocks in a manifest entry. A person decides the status (ADR-010). The command enforces
- * one rule: a block with a placeholder cannot be complete or verified (ADR-017).
+ * Sets the status of blocks in a manifest entry. A person decides the status (ADR-010).
  *
  * Usage: md-translate set-status [<path>] <status> [--block <index>] [--comment "..."]
  *   <path> is the original_path, such as "reviewed/Some File.md". In a terminal, a picker opens without it.
  *   No --block: all blocks change. A reviewer uses this to verify a whole file.
  *   --block <index>: only that block changes.
  */
-import { readFileSync } from "node:fs";
 import { parseArgs } from "node:util";
 import { loadConfig } from "../config.js";
 import { readManifestEntry, writeManifestEntry } from "../manifest-io.js";
@@ -53,8 +51,7 @@ export async function runSetStatus(argv: string[]): Promise<void> {
 
   // Trimmed here so the log shows what the manifest will store. The shared logic trims again.
   const comment = values.comment?.trim() || undefined;
-  const translationMarkdown = readFileSync(entry.translation_path, "utf-8");
-  const result = applyBlockStatus(entry, translationMarkdown, targetIndices, status, comment);
+  const result = applyBlockStatus(entry, targetIndices, status, comment);
   if (!result.ok) {
     console.error(result.error);
     process.exit(1);

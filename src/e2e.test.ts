@@ -81,9 +81,11 @@ describe("build against the fixture project", () => {
   it("shows correct status chips on the index page", () => {
     assert.match(indexHtml, /status-needs-attention/);
     assert.match(indexHtml, /status-not-started/);
-    // The header summary across both fixture documents: 5 translated of 9 blocks, 1 needs-attention.
+    // The header summary across both fixture documents: 5 claimed blocks of 11, 1 needs-attention.
+    // "Claimed" is a complete or verified status; the needs-attention quote, the in-progress
+    // paragraph, and the three untranslated blocks are not claimed.
     assert.match(indexHtml, /md-translate/);
-    assert.match(indexHtml, /2 documents · 5 of 9 blocks · 1 needs-attention/);
+    assert.match(indexHtml, /2 documents · 5 of 11 blocks · 1 needs-attention/);
   });
 
   it("links one shared stylesheet from every page, with no inline style block", () => {
@@ -103,11 +105,12 @@ describe("build against the fixture project", () => {
     }
   });
 
-  it("excludes blocks with no translatable content from Example.md's translation progress count", () => {
-    // Example.md has 9 blocks, but the divider and the markup-only html block have no text, so
-    // `translationProgress` skips both. The total is 7, and 5 are translated (the list and the
-    // html placeholder are not). A regression in that rule would change this to 6/7 or 7/7.
-    assert.match(indexHtml, /5 of 7 blocks translated · 1 needs-attention/);
+  it("counts only claimed blocks in Example.md's translation progress", () => {
+    // Example.md has 10 blocks. The divider never counts, so the total is 9. The claimed count is
+    // the complete-or-verified statuses: heading, paragraph, table, code, and the anchor html.
+    // The needs-attention quote, the in-progress paragraph, and the two untranslated blocks are
+    // not claimed. A regression would change this to 6/9 or 4/9.
+    assert.match(indexHtml, /5 of 9 blocks translated · 1 needs-attention/);
   });
 
   it("summarizes needs-attention as a count on the built index, without the block comment", () => {
@@ -137,7 +140,7 @@ describe("build from a directory with a conflicting tsconfig", () => {
 
   it("still builds correct pages", () => {
     assert.match(indexHtml, /status-needs-attention/);
-    assert.match(indexHtml, /5 of 7 blocks translated/);
+    assert.match(indexHtml, /5 of 9 blocks translated/);
     assert.doesNotMatch(indexHtml, /<quote>/);
   });
 });
@@ -210,8 +213,8 @@ describe("dev server against the fixture project", () => {
     assert.match(html, /<div class="doc-grid" data-original-path="Example\.md" data-statuses="[^"]+">/);
     assert.doesNotMatch(html, /<dialog/);
 
-    // Block 6 is the divider. It has no text, so it never holds the marker, and the editor never opens
-    // for it. Its rail shows the toolkit-owned verified pill, colored like any other block's.
+    // Block 6 is the divider. It holds no text, so it is never untranslated, and the editor never
+    // opens for it. Its rail shows the toolkit-owned verified pill, colored like any other block's.
     const dividerRow = html.split('<div class="block-row block-row-divider">')[1] ?? "";
     const columns = dividerRow.split("</div>").slice(0, 3).join("</div>");
     assert.match(columns, /<hr>/);
@@ -225,9 +228,9 @@ describe("dev server against the fixture project", () => {
     const html = await res.text();
     // Blocks 7 and 8 are raw html: the dev server shows their markup as escaped muted source.
     assert.match(html, /<pre class="html-source">&lt;!-- p\. 42 --&gt;/);
-    assert.match(html, /data-untranslated=&quot;\(не переведено\)&quot;/);
+    assert.match(html, /&lt;div class=&quot;note&quot;&gt;/);
     assert.doesNotMatch(html, /<a id="page-42"><\/a>/);
-    // Block 8 carries the placeholder marker, so it is highlighted and openable like any untranslated block.
+    // Block 8 has the untranslated status, so it is highlighted and openable like any untranslated block.
     assert.match(html, /class="cell untranslated block-cell" data-block="8"/);
   });
 
@@ -310,11 +313,6 @@ describe("dev server against the fixture project", () => {
       { name: "wrong kind", body: { block: "1", text: "# Заголовок вместо абзаца", status: "complete" } },
       { name: "empty text", body: { block: "1", text: "  \n ", status: "complete" } },
       { name: "scaffold-only text", body: { block: "2", text: "> ", status: "needs-attention", comment: "note" } },
-      // The text still holds the placeholder marker, so a complete claim must fail.
-      {
-        name: "placeholder as complete",
-        body: { block: "3", text: "* (не переведено) ещё не готово", status: "complete" },
-      },
     ];
     for (const { name, body } of rejections) {
       const res = await fetch(`http://localhost:${port}/api/block`, {
@@ -386,8 +384,7 @@ describe("dev server against the fixture project", () => {
   it("POST /api/block transitions a comment: kept, cleared, and required", async () => {
     const translationPath = join(dir, "translations/Example.md");
     const manifestPath = join(dir, "manifest/Example.md.json");
-    // Block 3 still holds the placeholder. The transitions below replace it, so the placeholder rule
-    // does not block them.
+    // Block 3 is untranslated. The transitions below replace its text with a real translation.
     const listText = "- Первый пункт.\n- Второй пункт.";
     const post = (status: string, comment?: string) =>
       fetch(`http://localhost:${port}/api/block`, {

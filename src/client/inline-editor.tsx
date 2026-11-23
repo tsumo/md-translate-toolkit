@@ -22,6 +22,7 @@ import {
   PILL_CLASS,
 } from "../dom-names.js";
 import { prefillForBlock } from "../placeholder.js";
+import type { BlockStatus } from "../types.js";
 import { validateBlockText } from "../validate-block-text.js";
 import { renderFragment } from "./fragment.js";
 
@@ -44,13 +45,13 @@ function renderedContent(cell: HTMLElement): Node[] {
 interface EditorProps {
   block: string;
   kind: string;
-  /** The block's raw Markdown source. `prefillForBlock` decides the field's starting text. */
+  /** The block's raw Markdown source. `prefillForBlock` decides the field's starting text from the status. */
   text: string;
   /** The original cell's rendered HTML, restated as the muted reference strip above the field on a phone. */
   originalHtml: string;
   /** The statuses the select offers, with `currentStatus` preselected. */
   statuses: string[];
-  currentStatus: string;
+  currentStatus: BlockStatus;
   currentComment: string;
   onDismiss: () => void;
   onSend: (text: string, status: string, comment: string) => Promise<string | null>;
@@ -111,7 +112,7 @@ function buildEditor(props: EditorProps): DocumentFragment {
         <div className="editor-orig" dangerouslySetInnerHTML={{ __html: props.originalHtml }} />
       )}
       <textarea
-        value={prefillForBlock(props.text)}
+        value={prefillForBlock(props.text, props.currentStatus)}
         aria-label={`Block ${props.block}, ${props.kind}`}
         ref={(el: HTMLTextAreaElement) => {
           field = el;
@@ -219,9 +220,10 @@ export function startInlineEditor(): void {
       }
       const { text, kind } = (await response.json()) as { text: string; kind: string };
       if (dismissOpen !== dismiss) return; // dismissed while the request was in flight
-      // The select and the comment field prefill from the pill the page rendered.
+      // The select and the comment field prefill from the pill the page rendered. The attribute is
+      // server-rendered from a real BlockStatus, so this is the DOM boundary where the type enters.
       const pill = document.querySelector<HTMLElement>(`.${PILL_CLASS}[${ATTR_BLOCK}="${block}"]`);
-      const currentStatus = pill?.getAttribute(ATTR_STATUS) ?? "";
+      const currentStatus = (pill?.getAttribute(ATTR_STATUS) ?? "untranslated") as BlockStatus;
       const currentComment = pill?.getAttribute(ATTR_COMMENT) ?? "";
       const send = async (edited: string, status: string, comment: string): Promise<string | null> => {
         try {

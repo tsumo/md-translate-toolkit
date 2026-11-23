@@ -1,12 +1,10 @@
 /** The index page: one card per claimed document, under the slim sticky header. */
-import { readFileSync } from "node:fs";
 import { hrefForDoc } from "../paths.js";
-import { translationProgress } from "../split-blocks.js";
 import { deriveFileStatus } from "../status.js";
 import type { ManifestEntry } from "../types.js";
 import { type Attribution, Footer } from "./document.js";
 import { type PageOptions, pageWrapper, SiteHeader } from "./page.js";
-import { barSegments, countingBlocks, needsAttentionCount, type Progress } from "./progress.js";
+import { barSegments, countingBlocks, needsAttentionCount, type Progress, progressOf } from "./progress.js";
 
 interface IndexCardProps {
   entry: ManifestEntry;
@@ -25,7 +23,7 @@ function cardCaption(progress: Progress, needsAttention: number): string {
 
 /** One card: title link, status chip, segmented bar, counts caption, repository metadata. */
 function IndexCard({ entry, progress }: IndexCardProps) {
-  const status = deriveFileStatus(entry.blocks, progress);
+  const status = deriveFileStatus(entry.blocks);
   const counting = countingBlocks(entry);
   const needsAttention = needsAttentionCount(counting);
   return (
@@ -71,7 +69,7 @@ export function renderIndexHeader(summary: string): string {
 }
 
 export function renderIndexPage(entries: ManifestEntry[], attribution: Attribution, options: PageOptions): string {
-  const progresses = entries.map((entry) => translationProgress(readFileSync(entry.translation_path, "utf-8")));
+  const progresses = entries.map((entry) => progressOf(entry));
   const body = (
     <>
       <SiteHeader right={indexSummary(entries, progresses)} />

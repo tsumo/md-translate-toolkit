@@ -1,30 +1,35 @@
-/** Status rules for blocks and documents (ADR-010, ADR-017). The toolkit never stores document status. */
-import type { RootContent } from "mdast";
-import { truncatedList } from "./diff-upstream.js";
-import { parseBlocks } from "./parse-blocks.js";
-import { isUntranslated } from "./placeholder.js";
-import { translationProgress } from "./split-blocks.js";
-import type { BlockEntry, BlockStatus, ManifestEntry, TranslationStatus } from "./types.js";
+/** Status rules for blocks and documents (ADR-010). The toolkit never stores document status. */
+import type { BlockEntry, BlockStatus, TranslationStatus } from "./types.js";
 
-export const VALID_BLOCK_STATUSES: BlockStatus[] = ["in-progress", "complete", "verified", "needs-attention"];
+export const VALID_BLOCK_STATUSES: BlockStatus[] = [
+  "untranslated",
+  "in-progress",
+  "complete",
+  "verified",
+  "needs-attention",
+];
 
 export function isValidBlockStatus(value: string): value is BlockStatus {
   return (VALID_BLOCK_STATUSES as string[]).includes(value);
 }
 
-export function isInvalidCompletion(status: BlockStatus, node: RootContent): boolean {
-  return (status === "complete" || status === "verified") && isUntranslated(node);
+/**
+ * True for a verified block of a kind the toolkit verifies at creation: a divider, or a raw HTML block with
+ * no translatable content (ADR-017). The manifest cannot tell a toolkit-owned status from a person's, so a
+ * person-verified html block reads the same; the next sync normalizes structural html, which bounds the
+ * ambiguity. Such a status is not a person's claim, so it cannot start a document.
+ */
+function isVerifiedStructuralKind(block: BlockEntry): boolean {
+  return block.status === "verified" && (block.kind === "thematicBreak" || block.kind === "html");
 }
 
-export function deriveFileStatus(
-  blocks: BlockEntry[],
-  progress: { translated: number; total: number },
-): TranslationStatus {
+/** The status of a document, derived from its blocks' statuses alone (ADR-010). */
+export function deriveFileStatus(blocks: BlockEntry[]): TranslationStatus {
   if (blocks.some((b) => b.status === "needs-attention")) return "needs-attention";
   if (blocks.every((b) => b.status === "verified")) return "verified";
   if (blocks.every((b) => b.status === "complete" || b.status === "verified")) return "complete";
-  if (progress.translated === 0) return "not-started";
-  return "in-progress";
+  const started = blocks.some((b) => b.status !== "untranslated" && !isVerifiedStructuralKind(b));
+  return started ? "in-progress" : "not-started";
 }
 
 /**
@@ -34,8 +39,7 @@ export function deriveFileStatus(
  * needs-attention refuses without one.
  */
 export function applyBlockStatus(
-  entry: ManifestEntry,
-  translationMarkdown: string,
+  entry: { blocks: BlockEntry[] },
   targetIndices: number[],
   status: BlockStatus,
   comment: string | undefined,
@@ -51,19 +55,10 @@ export function applyBlockStatus(
     return { ok: false, error: '"needs-attention" should have a comment explaining what needs attention.' };
   }
 
-  const translationNodes = parseBlocks(translationMarkdown);
-  const stillPlaceholder = targetIndices.filter((index) => isInvalidCompletion(status, translationNodes[index]));
-  if (stillPlaceholder.length > 0) {
-    return {
-      ok: false,
-      error: `Cannot set "${status}": block(s) ${truncatedList(stillPlaceholder)} still hold a placeholder.`,
-    };
-  }
-
   for (const index of targetIndices) {
     entry.blocks[index].status = status;
     entry.blocks[index].status_comment = storedComment;
   }
 
-  return { ok: true, fileStatus: deriveFileStatus(entry.blocks, translationProgress(translationMarkdown)) };
+  return { ok: true, fileStatus: deriveFileStatus(entry.blocks) };
 }

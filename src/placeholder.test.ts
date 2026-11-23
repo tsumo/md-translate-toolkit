@@ -1,63 +1,54 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { buildSync } from "esbuild";
-import { parseBlocks } from "./parse-blocks.js";
 import { prefillForBlock } from "./placeholder.js";
-import { placeholderFor, stringifyBlocks } from "./split-blocks.js";
-
-/** A real placeholder's source, the way `add-source` writes it into a translation file. */
-function placeholderSource(original: string): string {
-  return stringifyBlocks(parseBlocks(original).map(placeholderFor));
-}
 
 describe("prefillForBlock", () => {
-  it("returns real content as-is, whatever its source", () => {
+  it("returns real content as-is, whatever its status", () => {
     const source = "Переведённый абзац.";
-    assert.equal(prefillForBlock(source), source);
+    assert.equal(prefillForBlock(source, "complete"), source);
   });
 
-  it("returns a translated code block as-is, not a bare fence", () => {
-    const source = "```js\nпереведённыйКод();\n```";
-    assert.equal(prefillForBlock(source), source);
+  it("returns a block as-is when its status is not untranslated", () => {
+    const source = "# Заголовок над готовым переводом.";
+    assert.equal(prefillForBlock(source, "verified"), source);
+    assert.equal(prefillForBlock(source, "in-progress"), source);
+    assert.equal(prefillForBlock(source, "needs-attention"), source);
   });
 
-  it("opens a paragraph placeholder empty, without marker or preview", () => {
-    assert.equal(prefillForBlock(placeholderSource("Оригинальный текст.")), "");
+  it("opens a paragraph placeholder empty", () => {
+    assert.equal(prefillForBlock("Оригинальный текст.", "untranslated"), "");
   });
 
   it("opens a heading placeholder with only its depth marker", () => {
-    assert.equal(prefillForBlock(placeholderSource("# A Heading")), "# ");
-    assert.equal(prefillForBlock(placeholderSource("### A Deeper Heading")), "### ");
+    assert.equal(prefillForBlock("# A Heading", "untranslated"), "# ");
+    assert.equal(prefillForBlock("### A Deeper Heading", "untranslated"), "### ");
   });
 
   it("opens a code placeholder with an empty fence keeping the language", () => {
-    assert.equal(prefillForBlock(placeholderSource("```js\ncode();\n```")), "```js\n```");
+    assert.equal(prefillForBlock("```js\ncode();\n```", "untranslated"), "```js\n```");
   });
 
   it("opens a language-less code placeholder with a bare fence", () => {
-    assert.equal(prefillForBlock(placeholderSource("```\ncode();\n```")), "```\n```");
+    assert.equal(prefillForBlock("```\ncode();\n```", "untranslated"), "```\n```");
   });
 
   it("opens a list placeholder with only its marker", () => {
-    assert.equal(prefillForBlock(placeholderSource("- пункт один\n- пункт два")), "- ");
-    assert.equal(prefillForBlock(placeholderSource("1. пункт один\n2. пункт два")), "1. ");
+    assert.equal(prefillForBlock("- пункт один\n- пункт два", "untranslated"), "- ");
+    assert.equal(prefillForBlock("1. пункт один\n2. пункт два", "untranslated"), "1. ");
   });
 
   it("opens a quote placeholder with only the quote marker", () => {
-    assert.equal(prefillForBlock(placeholderSource("> Цитата целиком.")), "> ");
+    assert.equal(prefillForBlock("> Цитата целиком.", "untranslated"), "> ");
   });
 
   it("opens a table placeholder with a minimal one-column table", () => {
-    assert.equal(prefillForBlock(placeholderSource("| a | b |\n| - | - |\n| 1 | 2 |")), "|  |\n| - |");
+    assert.equal(prefillForBlock("| a | b |\n| - | - |\n| 1 | 2 |", "untranslated"), "|  |\n| - |");
   });
 
-  it("opens a translatable html placeholder with its original markup, marker stripped, for translation in place", () => {
-    assert.equal(prefillForBlock(placeholderSource("<div>Some text</div>")), "<div>Some text</div>");
-  });
-
-  it("returns a structural html block as-is, whatever its status", () => {
-    const source = '<!-- p. 13 --><a id="page-13"></a>';
-    assert.equal(prefillForBlock(source), source);
+  it("opens an untranslated html placeholder with its original markup, for translation in place", () => {
+    const source = '<div class="note">A note to translate.</div>';
+    assert.equal(prefillForBlock(source, "untranslated"), source);
   });
 });
 

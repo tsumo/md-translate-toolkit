@@ -3,13 +3,12 @@
  * The same code handles originals and translations.
  */
 import { createHash } from "node:crypto";
-import type { PhrasingContent, Root, RootContent } from "mdast";
+import type { Root, RootContent } from "mdast";
 import { toString as nodeToString } from "mdast-util-to-string";
 import remarkGfm from "remark-gfm";
 import remarkStringify from "remark-stringify";
 import { unified } from "unified";
 import { parseBlocks } from "./parse-blocks.js";
-import { hasTranslatableContent, injectHtmlMarker, isUntranslated, PLACEHOLDER_MARKER } from "./placeholder.js";
 import type { BlockEntry } from "./types.js";
 
 /** Block data that comes from content only. It has no status. */
@@ -55,78 +54,72 @@ function truncatePreview(text: string, maxChars: number): string {
   return `${(lastSpace > 0 ? cut.slice(0, lastSpace) : cut).trimEnd()}…`;
 }
 
-function emphasized(text: string): PhrasingContent {
-  return { type: "emphasis", children: [{ type: "text", value: text }] };
-}
-
-/** The marker plus a preview of the block text. Only the marker, when the block has no text. */
-function markerWithPreview(node: RootContent): PhrasingContent[] {
-  const preview = truncatePreview(nodeToString(node, { includeHtml: false }), PREVIEW_MAX_CHARS);
-  return preview
-    ? [emphasized(PLACEHOLDER_MARKER), { type: "text", value: ` ${preview}` }]
-    : [emphasized(PLACEHOLDER_MARKER)];
+function previewText(node: RootContent): string {
+  return truncatePreview(nodeToString(node, { includeHtml: false }), PREVIEW_MAX_CHARS);
 }
 
 /**
- * Makes a placeholder of the same kind as `node`: the marker plus a preview of the original text (ADR-006).
- * It keeps cheap structure, such as heading depth, list type, and code language. It does not copy nested
- * content, because blocks are top-level only (ADR-002).
+ * The preview placeholder of `node`, built by `make` from the preview text. A block whose preview is empty,
+ * such as a paragraph that holds only an image, passes through unchanged, because an empty placeholder would
+ * vanish on re-parse and break the block alignment (ADR-005).
+ */
+function previewPlaceholder(node: RootContent, make: (preview: string) => RootContent): RootContent {
+  const preview = previewText(node);
+  return preview ? make(preview) : node;
+}
+
+/**
+ * Makes a placeholder of the same kind as `node`: a bare preview of the original text (ADR-006). It keeps
+ * cheap structure, such as heading depth, list type, and code language. It does not copy nested content,
+ * because blocks are top-level only (ADR-002). The block's untranslated status, not its text, says that it
+ * is untranslated (ADR-010).
  */
 export function placeholderFor(node: RootContent): RootContent {
   switch (node.type) {
     case "heading":
-      return { type: "heading", depth: node.depth, children: markerWithPreview(node) };
+      return previewPlaceholder(node, (preview) => ({
+        type: "heading",
+        depth: node.depth,
+        children: [{ type: "text", value: preview }],
+      }));
     case "paragraph":
-      return { type: "paragraph", children: markerWithPreview(node) };
+      return previewPlaceholder(node, (preview) => ({
+        type: "paragraph",
+        children: [{ type: "text", value: preview }],
+      }));
     case "blockquote":
-      return {
+      return previewPlaceholder(node, (preview) => ({
         type: "blockquote",
-        children: [{ type: "paragraph", children: markerWithPreview(node) }],
-      };
+        children: [{ type: "paragraph", children: [{ type: "text", value: preview }] }],
+      }));
     case "list":
-      return {
+      return previewPlaceholder(node, (preview) => ({
         type: "list",
         ordered: node.ordered ?? false,
-        children: [{ type: "listItem", children: [{ type: "paragraph", children: markerWithPreview(node) }] }],
-      };
+        children: [
+          { type: "listItem", children: [{ type: "paragraph", children: [{ type: "text", value: preview }] }] },
+        ],
+      }));
     case "table":
-      return {
+      return previewPlaceholder(node, (preview) => ({
         type: "table",
         align: [null],
-        children: [{ type: "tableRow", children: [{ type: "tableCell", children: markerWithPreview(node) }] }],
-      };
-    case "code": {
-      const preview = truncatePreview(node.value, PREVIEW_MAX_CHARS);
+        children: [
+          { type: "tableRow", children: [{ type: "tableCell", children: [{ type: "text", value: preview }] }] },
+        ],
+      }));
+    case "code":
       return {
         type: "code",
         lang: node.lang ?? undefined,
-        value: preview ? `${PLACEHOLDER_MARKER} ${preview}` : PLACEHOLDER_MARKER,
+        value: previewText(node),
       };
-    }
     case "thematicBreak":
       return { type: "thematicBreak" };
-    case "html": {
-      // A block with no translatable content passes through unchanged (ADR-018). A translatable placeholder
-      // embeds the marker as an attribute on the first tag (ADR-006), so any HTML block shape still re-parses
-      // as one block. A value with no open tag to carry it stays unsupported until seen in a real file.
-      if (!hasTranslatableContent(node)) return node;
-      const marked = injectHtmlMarker(node.value);
-      if (marked === undefined) {
-        throw new Error(`placeholderFor: unsupported html block shape — add support once seen in a real file.`);
-      }
-      return { type: "html", value: marked };
-    }
+    case "html":
+      // The placeholder is the original markup verbatim (ADR-006): a person translates such a block in place.
+      return node;
     default:
       throw new Error(`placeholderFor: unsupported block kind "${node.type}" — add support once seen in a real file.`);
   }
-}
-
-export function progressFromNodes(nodes: RootContent[]): { translated: number; total: number } {
-  const content = nodes.filter((node) => hasTranslatableContent(node));
-  const translated = content.filter((node) => !isUntranslated(node)).length;
-  return { translated, total: content.length };
-}
-
-export function translationProgress(markdown: string): { translated: number; total: number } {
-  return progressFromNodes(parseBlocks(markdown));
 }

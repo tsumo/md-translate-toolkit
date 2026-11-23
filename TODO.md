@@ -7,5 +7,3 @@ they get implemented or proved not worthy after the research.
   `remark-parse` of the whole translation file on every edit-triggered reload gets slow again.
 
 - stage `CONTEXT.md`, expand it.
-
-- consider removing untranslated marker

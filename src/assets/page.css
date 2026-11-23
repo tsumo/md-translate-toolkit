@@ -144,6 +144,10 @@ ul.index {
 .status-not-started {
   background: var(--status-not-started);
 }
+/* Untranslated never draws beside not-started, so the two share the gray. */
+.status-untranslated {
+  background: var(--status-not-started);
+}
 .status-in-progress {
   background: var(--status-in-progress);
 }

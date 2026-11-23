@@ -2,8 +2,7 @@ import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { describe, it } from "node:test";
 import { parseBlocks } from "./parse-blocks.js";
-import { PLACEHOLDER_MARKER } from "./placeholder.js";
-import { fingerprintBlock, placeholderFor, stringifyBlocks } from "./split-blocks.js";
+import { fingerprintBlock } from "./split-blocks.js";
 import type { BlockEntry, ManifestEntry } from "./types.js";
 import { checkEntry } from "./verify-checks.js";
 
@@ -14,7 +13,7 @@ function entryFor(original: string, overrides: Partial<ManifestEntry> = {}): Man
   const blocks: BlockEntry[] = parseBlocks(original).map((node) => ({
     kind: node.type,
     fingerprint: fingerprintBlock(node),
-    status: "in-progress",
+    status: "untranslated",
   }));
   return {
     original_path: "reviewed/Test.md",
@@ -85,24 +84,5 @@ describe("checkEntry", () => {
     const entry = entryFor(ORIGINAL);
     const result = checkEntry(entry, ORIGINAL, "Абзац.\n\n# Заголовок\n");
     assert.ok(result.errors.some((e) => e.includes('translation block 0: kind "paragraph"')));
-  });
-
-  it("flags a block marked complete or verified that still holds the untranslated placeholder", () => {
-    const entry = entryFor(ORIGINAL);
-    entry.blocks[0] = { ...entry.blocks[0], status: "complete" };
-    const [headingNode] = parseBlocks(ORIGINAL);
-    const translation = `${stringifyBlocks([placeholderFor(headingNode)])}\nАбзац.\n`;
-    const result = checkEntry(entry, ORIGINAL, translation);
-    assert.ok(result.errors.some((e) => e.includes('block 0: status "complete" but still holds')));
-  });
-
-  it("does not flag an in-progress block that still holds the placeholder", () => {
-    const entry = entryFor(ORIGINAL);
-    const [headingNode] = parseBlocks(ORIGINAL);
-    const translation = `${stringifyBlocks([placeholderFor(headingNode)])}\nАбзац.\n`;
-    const result = checkEntry(entry, ORIGINAL, translation);
-    assert.deepEqual(result.errors, []);
-    // Check that the placeholder is really there, so the test above proves something.
-    assert.ok(stringifyBlocks([placeholderFor(headingNode)]).includes(PLACEHOLDER_MARKER));
   });
 });

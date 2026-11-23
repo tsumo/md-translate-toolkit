@@ -1,7 +1,7 @@
 /** Types for the manifest format. DECISIONS.md gives the reasons for them. */
 
-/** The status of a block. A person sets it (ADR-010). */
-export type BlockStatus = "in-progress" | "complete" | "verified" | "needs-attention";
+/** The status of a block. A person sets every status except the start state and the structural ones (ADR-010, ADR-017). */
+export type BlockStatus = "untranslated" | "in-progress" | "complete" | "verified" | "needs-attention";
 
 /** The kind and fingerprint of a block. Its position is its index in `ManifestEntry.blocks` (ADR-005). */
 export interface BlockEntry {

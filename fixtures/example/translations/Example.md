@@ -4,7 +4,7 @@
 
 > Переведённая цитата.
 
-* *(не переведено)* a list item
+* a list item
 
 | a | b |
 | - | - |
@@ -18,4 +18,6 @@ code();
 
 <!-- p. 42 --><a id="page-42"></a>
 
-<div class="note" data-untranslated="(не переведено)">A note to translate.</div>
+<div class="note">A note to translate.</div>
+
+Абзац в работе.

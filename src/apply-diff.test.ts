@@ -25,7 +25,7 @@ describe("resolveStatus", () => {
     });
   });
 
-  it("normalizes an unchanged structural block to verified, whatever its stored status (ADR-018)", () => {
+  it("normalizes an unchanged structural block to verified, whatever its stored status (ADR-017)", () => {
     const diffEntry: DiffEntry = { kind: "unchanged", oldIndex: 0, newIndex: 0 };
     const oldBlocks = [block("in-progress", "kept note")];
     assert.deepEqual(resolveStatus(diffEntry, oldBlocks, TODAY, anchorNode), {
@@ -88,9 +88,9 @@ describe("resolveStatus", () => {
     });
   });
 
-  it("gives an added block the in-progress default, with no prior block to inherit from", () => {
+  it("gives an added block the untranslated default, with no prior block to inherit from", () => {
     const diffEntry: DiffEntry = { kind: "added", newIndex: 0 };
-    assert.deepEqual(resolveStatus(diffEntry, [], TODAY, paraNode), { status: "in-progress" });
+    assert.deepEqual(resolveStatus(diffEntry, [], TODAY, paraNode), { status: "untranslated" });
   });
 
   it("gives an added structural block verified from the start", () => {
@@ -132,7 +132,7 @@ describe("applyResync", () => {
 
     const text = translationNodes[0];
     assert.equal(text.type, "paragraph");
-    assert.equal(blocks[0].status, "in-progress");
+    assert.equal(blocks[0].status, "untranslated");
   });
 
   it("refreshes a changed structural block's translation from upstream, since it holds nothing of the person's own", () => {
@@ -145,7 +145,7 @@ describe("applyResync", () => {
     assert.equal(blocks[0].status, "needs-attention");
   });
 
-  it("gives an added structural block its upstream markup with no marker, already verified", () => {
+  it("gives an added structural block its upstream markup, already verified", () => {
     const [newNode] = parseBlocks('<!-- p. 13 --><a id="page-13"></a>');
     const diff: DiffEntry[] = [{ kind: "added", newIndex: 0 }];
     const { translationNodes, blocks } = applyResync(diff, [], [], [newNode], TODAY);

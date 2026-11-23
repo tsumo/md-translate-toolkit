@@ -4,8 +4,7 @@ import { parseBlocks } from "./parse-blocks.js";
 import { documentToBlockHtml } from "./render/blocks.js";
 import { renderDocumentBody, renderDocumentHeader } from "./render/document.js";
 import { indexSummary, renderIndexCard, renderIndexHeader } from "./render/index-page.js";
-import { documentCaption } from "./render/progress.js";
-import { placeholderFor, stringifyBlocks } from "./split-blocks.js";
+import { barSegments, documentCaption, progressOf } from "./render/progress.js";
 import type { ManifestEntry } from "./types.js";
 
 function normalizeHtml(html: string): string {
@@ -98,7 +97,11 @@ describe("renderDocumentHeader", () => {
 describe("renderDocumentBody", () => {
   it("labels the two panels, then orders each block row as original cell, rail, translation cell", () => {
     const [n1, n2] = parseBlocks("Переведено.\n\nЕще.");
-    const body = renderDocumentBody(["<p>O1</p>", "<p>O2</p>"], ["<p>T1</p>", "<p>T2</p>"], [n1, n2]);
+    const body = renderDocumentBody({
+      originalHtml: ["<p>O1</p>", "<p>O2</p>"],
+      translationHtml: ["<p>T1</p>", "<p>T2</p>"],
+      translationNodes: [n1, n2],
+    });
     assertOrder(
       body,
       '<main><div class="doc-grid"><div class="panel-label">Original</div>',
@@ -117,9 +120,13 @@ describe("renderDocumentBody", () => {
   });
 
   it("marks only the translation side as untranslated, with the tag inside the amber box", () => {
-    const [original] = parseBlocks("Original text.");
-    const [untranslatedNode] = parseBlocks(stringifyBlocks([placeholderFor(original)]));
-    const body = renderDocumentBody(["<p>O</p>"], ["<p>T</p>"], [untranslatedNode]);
+    const [node] = parseBlocks("Original text.");
+    const body = renderDocumentBody({
+      originalHtml: ["<p>O</p>"],
+      translationHtml: ["<p>T</p>"],
+      translationNodes: [node],
+      blocks: [{ kind: "paragraph", fingerprint: "0000000000000000", status: "untranslated" }],
+    });
     assert.match(
       body,
       /<div class="cell untranslated"><div class="untrans-box"><p>T<\/p><p class="untrans-tag">UNTRANSLATED<\/p><\/div><\/div>/,
@@ -129,13 +136,21 @@ describe("renderDocumentBody", () => {
 
   it("embeds rehype block HTML raw, so a <br> inside a paragraph stays a tag", () => {
     const [n1] = parseBlocks("Line one.<br>\nLine two.");
-    const body = renderDocumentBody(["<p>Line one.<br>\nLine two.</p>"], [], [n1]);
+    const body = renderDocumentBody({
+      originalHtml: ["<p>Line one.<br>\nLine two.</p>"],
+      translationHtml: [],
+      translationNodes: [n1],
+    });
     assert.match(body, /<p>Line one\.<br>\nLine two\.<\/p>/);
   });
 
   it("fills a missing side with an empty cell when the two lists differ in length", () => {
     const [n1] = parseBlocks("Переведено.");
-    const body = renderDocumentBody(["<p>O1</p>", "<p>O2</p>"], ["<p>T1</p>"], [n1]);
+    const body = renderDocumentBody({
+      originalHtml: ["<p>O1</p>", "<p>O2</p>"],
+      translationHtml: ["<p>T1</p>"],
+      translationNodes: [n1],
+    });
     assertOrder(
       body,
       '<div class="cell"><p>T1</p></div>',
@@ -147,19 +162,23 @@ describe("renderDocumentBody", () => {
 
   it("renders a display-only status pill per block and the grid data the client needs when editable", () => {
     const [n1, n2] = parseBlocks("Переведено.\n\nЕще.");
-    const editable = {
-      originalPath: "reviewed/Simple.md",
-      blocks: [
-        { kind: "paragraph" as const, fingerprint: "0000000000000000", status: "complete" as const },
-        { kind: "paragraph" as const, fingerprint: "1111111111111111", status: "verified" as const },
-      ],
-    };
-    const body = renderDocumentBody(["<p>O1</p>", "<p>O2</p>"], ["<p>T1</p>", "<p>T2</p>"], [n1, n2], editable);
+    const editable = { originalPath: "reviewed/Simple.md" };
+    const blocks = [
+      { kind: "paragraph" as const, fingerprint: "0000000000000000", status: "complete" as const },
+      { kind: "paragraph" as const, fingerprint: "1111111111111111", status: "verified" as const },
+    ];
+    const body = renderDocumentBody({
+      originalHtml: ["<p>O1</p>", "<p>O2</p>"],
+      translationHtml: ["<p>T1</p>", "<p>T2</p>"],
+      translationNodes: [n1, n2],
+      editable,
+      blocks,
+    });
     assert.match(body, /<span class="status-pill status-complete" data-block="0" data-status="complete"/);
     assert.match(body, /<span class="status-pill status-verified" data-block="1"/);
     assert.match(
       body,
-      /<div class="doc-grid" data-original-path="reviewed\/Simple\.md" data-statuses="in-progress complete verified needs-attention">/,
+      /<div class="doc-grid" data-original-path="reviewed\/Simple\.md" data-statuses="untranslated in-progress complete verified needs-attention">/,
     );
     // Pills are display-only: no clickable element and no editing markup in the server HTML.
     assert.doesNotMatch(body, /<button|<dialog|<form|<script/);
@@ -167,35 +186,41 @@ describe("renderDocumentBody", () => {
 
   it("marks a needs-attention pill with ! and puts the comment in its title", () => {
     const [n1] = parseBlocks("Переведено.");
-    const editable = {
-      originalPath: "reviewed/Simple.md",
-      blocks: [
-        {
-          kind: "paragraph" as const,
-          fingerprint: "0000000000000000",
-          status: "needs-attention" as const,
-          status_comment: "check this",
-        },
-      ],
-    };
-    const body = renderDocumentBody(["<p>O1</p>"], ["<p>T1</p>"], [n1], editable);
+    const blocks = [
+      {
+        kind: "paragraph" as const,
+        fingerprint: "0000000000000000",
+        status: "needs-attention" as const,
+        status_comment: "check this",
+      },
+    ];
+    const body = renderDocumentBody({
+      originalHtml: ["<p>O1</p>"],
+      translationHtml: ["<p>T1</p>"],
+      translationNodes: [n1],
+      editable: { originalPath: "reviewed/Simple.md" },
+      blocks,
+    });
     assert.match(body, /title="needs-attention: check this"[^>]*>0!<\/span>/);
   });
 
   it("renders a flagged block as a tinted box with the comment as a red note below it", () => {
     const [n1] = parseBlocks("Переведено.");
-    const editable = {
-      originalPath: "reviewed/Simple.md",
-      blocks: [
-        {
-          kind: "paragraph" as const,
-          fingerprint: "0000000000000000",
-          status: "needs-attention" as const,
-          status_comment: "check this",
-        },
-      ],
-    };
-    const body = renderDocumentBody(["<p>O1</p>"], ["<p>T1</p>"], [n1], editable);
+    const blocks = [
+      {
+        kind: "paragraph" as const,
+        fingerprint: "0000000000000000",
+        status: "needs-attention" as const,
+        status_comment: "check this",
+      },
+    ];
+    const body = renderDocumentBody({
+      originalHtml: ["<p>O1</p>"],
+      translationHtml: ["<p>T1</p>"],
+      translationNodes: [n1],
+      editable: { originalPath: "reviewed/Simple.md" },
+      blocks,
+    });
     assert.match(
       body,
       /<div class="cell flagged block-cell" data-block="0"><div class="flag-box"><p>T1<\/p><\/div><p class="flag-note">Needs attention — check this<\/p><\/div>/,
@@ -206,70 +231,98 @@ describe("renderDocumentBody", () => {
   });
 
   it("renders an editable untranslated block as an amber box openable in the editor, with the tag inside", () => {
-    const [original] = parseBlocks("Original text.");
-    const [untranslatedNode] = parseBlocks(stringifyBlocks([placeholderFor(original)]));
-    const editable = {
-      originalPath: "reviewed/Simple.md",
-      blocks: [{ kind: "list" as const, fingerprint: "0000000000000000", status: "in-progress" as const }],
-    };
-    const body = renderDocumentBody(["<p>O</p>"], ["<ul><li>T</li></ul>"], [untranslatedNode], editable);
+    const [node] = parseBlocks("- a list item");
+    const blocks = [{ kind: "list" as const, fingerprint: "0000000000000000", status: "untranslated" as const }];
+    const body = renderDocumentBody({
+      originalHtml: ["<p>O</p>"],
+      translationHtml: ["<ul><li>T</li></ul>"],
+      translationNodes: [node],
+      editable: { originalPath: "reviewed/Simple.md" },
+      blocks,
+    });
     assert.match(body, /<div class="cell untranslated block-cell" data-block="0"><div class="untrans-box">/);
     assertOrder(body, "<ul>", "untrans-tag");
   });
 
+  it("does not mark a block untranslated from its text alone: only the status does", () => {
+    // The placeholder text is a bare preview, indistinguishable from content. Without the
+    // manifest's blocks, e.g. in an old call site, no untranslated styling appears.
+    const [node] = parseBlocks("Original text.");
+    const body = renderDocumentBody({
+      originalHtml: ["<p>O</p>"],
+      translationHtml: ["<p>T</p>"],
+      translationNodes: [node],
+    });
+    assert.doesNotMatch(body, /untranslated|untrans-tag/);
+  });
+
   it("renders a centered status pill, colored by its toolkit-owned status, for a thematic-break row", () => {
     const [n1] = parseBlocks("---");
-    const editable = {
-      originalPath: "reviewed/Simple.md",
-      blocks: [{ kind: "thematicBreak" as const, fingerprint: "0000000000000000", status: "verified" as const }],
-    };
-    const body = renderDocumentBody(["<hr>"], ["<hr>"], [n1], editable);
+    const blocks = [{ kind: "thematicBreak" as const, fingerprint: "0000000000000000", status: "verified" as const }];
+    const body = renderDocumentBody({
+      originalHtml: ["<hr>"],
+      translationHtml: ["<hr>"],
+      translationNodes: [n1],
+      editable: { originalPath: "reviewed/Simple.md" },
+      blocks,
+    });
     assert.match(body, /<div class="block-row block-row-divider"><div class="cell orig divider-row"><hr><\/div>/);
     assert.match(body, /<div class="rail rail-divider"><span class="status-pill status-verified"/);
     assert.match(body, /<div class="cell divider-row"><hr><\/div>/);
     // The pill informs, but the editor never opens for a divider.
-    assert.doesNotMatch(body, /block-cell|untranslated/);
+    assert.doesNotMatch(body, /block-cell|class="untranslated|untrans-box/);
   });
 
   it("renders a plain centered number for a thematic-break row with no manifest entry", () => {
     const [n1] = parseBlocks("---");
-    const body = renderDocumentBody(["<hr>"], ["<hr>"], [n1]);
+    const body = renderDocumentBody({ originalHtml: ["<hr>"], translationHtml: ["<hr>"], translationNodes: [n1] });
     assert.match(body, /<div class="rail rail-divider"><p class="block-index">0<\/p><\/div>/);
     assert.doesNotMatch(body, /status-pill/);
   });
 
   it("renders no pill and no editing markup when editable info is omitted, e.g. the static build", () => {
     const [n1] = parseBlocks("Переведено.");
-    const body = renderDocumentBody(["<p>O1</p>"], ["<p>T1</p>"], [n1]);
+    const body = renderDocumentBody({
+      originalHtml: ["<p>O1</p>"],
+      translationHtml: ["<p>T1</p>"],
+      translationNodes: [n1],
+    });
     assert.doesNotMatch(body, /status-pill/);
     assert.doesNotMatch(body, /<dialog|<form|<script/);
   });
 
   it("escapes & and quotes in a status_comment placed in an attribute", () => {
     const [n1] = parseBlocks("Переведено.");
-    const editable = {
-      originalPath: "reviewed/Simple.md",
-      blocks: [
-        {
-          kind: "paragraph" as const,
-          fingerprint: "0000000000000000",
-          status: "needs-attention" as const,
-          status_comment: 'check "this" & that',
-        },
-      ],
-    };
-    const body = renderDocumentBody(["<p>O1</p>"], ["<p>T1</p>"], [n1], editable);
+    const blocks = [
+      {
+        kind: "paragraph" as const,
+        fingerprint: "0000000000000000",
+        status: "needs-attention" as const,
+        status_comment: 'check "this" & that',
+      },
+    ];
+    const body = renderDocumentBody({
+      originalHtml: ["<p>O1</p>"],
+      translationHtml: ["<p>T1</p>"],
+      translationNodes: [n1],
+      editable: { originalPath: "reviewed/Simple.md" },
+      blocks,
+    });
     assert.match(body, /data-comment="check &quot;this&quot; &amp; that"/);
   });
 
   it("renders an html row as muted source in the dev server, still openable in the editor", () => {
     const [orig] = parseBlocks('<!-- p. 13 --><a id="page-13"></a>');
-    const editable = {
-      originalPath: "reviewed/Simple.md",
-      blocks: [{ kind: "html" as const, fingerprint: "0000000000000000", status: "verified" as const }],
-    };
+    const blocks = [{ kind: "html" as const, fingerprint: "0000000000000000", status: "verified" as const }];
     const source = '<!-- p. 13 --><a id="page-13"></a>';
-    const body = renderDocumentBody([source], [source], [orig], editable, [orig]);
+    const body = renderDocumentBody({
+      originalHtml: [source],
+      translationHtml: [source],
+      translationNodes: [orig],
+      editable: { originalPath: "reviewed/Simple.md" },
+      originalNodes: [orig],
+      blocks,
+    });
     assert.match(body, /data-block="0"/);
     // The markup is escaped text, never rendered raw, so the row is never a blank mystery.
     assert.doesNotMatch(body, /<a id="page-13"><\/a>/);
@@ -279,21 +332,28 @@ describe("renderDocumentBody", () => {
   it("renders an html row as real markup in the static build, with no muted source", () => {
     const [orig] = parseBlocks('<!-- p. 13 --><a id="page-13"></a>');
     const source = '<!-- p. 13 --><a id="page-13"></a>';
-    const body = renderDocumentBody([source], [source], [orig], undefined, [orig]);
+    const body = renderDocumentBody({
+      originalHtml: [source],
+      translationHtml: [source],
+      translationNodes: [orig],
+      originalNodes: [orig],
+    });
     assert.match(body, /<a id="page-13"><\/a>/);
     assert.doesNotMatch(body, /html-source/);
   });
 
-  it("shows a translatable html placeholder as muted source inside the untranslated box", () => {
-    const [original] = parseBlocks("<div>Some text</div>");
-    const [placeholderNode] = parseBlocks(stringifyBlocks([placeholderFor(original)]));
-    const editable = {
-      originalPath: "reviewed/Simple.md",
-      blocks: [{ kind: "html" as const, fingerprint: "0000000000000000", status: "in-progress" as const }],
-    };
-    const body = renderDocumentBody(["<div>O</div>"], ["<div>T</div>"], [placeholderNode], editable, [original]);
+  it("shows an untranslated html placeholder as muted source inside the untranslated box", () => {
+    const [node] = parseBlocks("<div>Some text</div>");
+    const blocks = [{ kind: "html" as const, fingerprint: "0000000000000000", status: "untranslated" as const }];
+    const body = renderDocumentBody({
+      originalHtml: ["<div>O</div>"],
+      translationHtml: ["<div>T</div>"],
+      translationNodes: [node],
+      editable: { originalPath: "reviewed/Simple.md" },
+      originalNodes: [node],
+      blocks,
+    });
     assertOrder(body, "untrans-box", "html-source", "untrans-tag");
-    assert.match(body, /data-untranslated=&quot;\(не переведено\)&quot;/);
   });
 });
 
@@ -357,16 +417,16 @@ describe("renderIndexCard", () => {
     assert.doesNotMatch(html, /flagged|status_comment|Check this/);
   });
 
-  it("draws a whole not-started bar and the open-the-document caption when nothing is translated", () => {
+  it("draws a whole not-started bar and the open-the-document caption when nothing is claimed", () => {
     const doc = entry({
       blocks: [
-        { kind: "paragraph", fingerprint: "1111111111111111", status: "in-progress" },
-        { kind: "paragraph", fingerprint: "2222222222222222", status: "in-progress" },
+        { kind: "paragraph", fingerprint: "1111111111111111", status: "untranslated" },
+        { kind: "paragraph", fingerprint: "2222222222222222", status: "untranslated" },
       ],
     });
     const html = renderIndexCard(doc, { translated: 0, total: 2 });
     assert.match(html, /<span class="chip status-not-started">not-started<\/span>/);
-    // The manifest says in-progress, but with nothing translated the whole bar is one segment.
+    // With nothing claimed the whole bar is one segment.
     assert.match(html, /<span class="bar-seg status-not-started" style="flex-grow:2"><\/span>/);
     assert.equal(html.match(/bar-seg/g)?.length, 1);
     assert.match(html, /<p class="card-caption">0 of 2 blocks translated — open the document to begin<\/p>/);
@@ -404,6 +464,54 @@ describe("renderIndexCard", () => {
     assert.match(html, /bar-seg status-not-started/);
     assert.match(html, /0 of 0 blocks translated · 1 needs-attention/);
     assert.doesNotMatch(html, /open the document/);
+  });
+});
+
+describe("progressOf", () => {
+  it("counts blocks claimed complete or verified, and excludes dividers from the total", () => {
+    const entry = {
+      blocks: [
+        { kind: "paragraph" as const, fingerprint: "1", status: "complete" as const },
+        { kind: "paragraph" as const, fingerprint: "2", status: "verified" as const },
+        { kind: "paragraph" as const, fingerprint: "3", status: "untranslated" as const },
+        { kind: "html" as const, fingerprint: "4", status: "untranslated" as const },
+        { kind: "thematicBreak" as const, fingerprint: "5", status: "verified" as const },
+      ],
+    };
+    assert.deepEqual(progressOf(entry), { translated: 2, total: 4 });
+  });
+
+  it("does not count needs-attention blocks as translated", () => {
+    const entry = {
+      blocks: [
+        { kind: "paragraph" as const, fingerprint: "1", status: "needs-attention" as const },
+        { kind: "paragraph" as const, fingerprint: "2", status: "complete" as const },
+      ],
+    };
+    assert.deepEqual(progressOf(entry), { translated: 1, total: 2 });
+  });
+});
+
+describe("barSegments", () => {
+  it("draws one not-started segment while nothing is claimed", () => {
+    const counting = [
+      { kind: "paragraph" as const, fingerprint: "1", status: "untranslated" as const },
+      { kind: "paragraph" as const, fingerprint: "2", status: "untranslated" as const },
+    ];
+    assert.deepEqual(barSegments(counting, { translated: 0, total: 2 }), [{ status: "not-started", count: 2 }]);
+  });
+
+  it("draws one segment per present status, untranslated first", () => {
+    const counting = [
+      { kind: "paragraph" as const, fingerprint: "1", status: "untranslated" as const },
+      { kind: "paragraph" as const, fingerprint: "2", status: "complete" as const },
+      { kind: "paragraph" as const, fingerprint: "3", status: "verified" as const },
+    ];
+    assert.deepEqual(barSegments(counting, { translated: 2, total: 3 }), [
+      { status: "untranslated", count: 1 },
+      { status: "verified", count: 1 },
+      { status: "complete", count: 1 },
+    ]);
   });
 });
 

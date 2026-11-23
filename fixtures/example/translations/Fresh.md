@@ -1,3 +1,3 @@
-# *(не переведено)* Fresh Document
+# Fresh Document
 
-*(не переведено)* A single untranslated paragraph.
+A single untranslated paragraph.

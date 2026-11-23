@@ -1,7 +1,6 @@
 /**
- * Checks each manifest entry against its pinned original and its translation: hashes, block kinds, and
- * completion claims (ADR-009, ADR-017). Also checks that a manifest entry claims every translation file.
- * `build` calls `verifyAll`.
+ * Checks each manifest entry against its pinned original and its translation: hashes and block kinds
+ * (ADR-009). Also checks that a manifest entry claims every translation file. `build` calls `verifyAll`.
  */
 
 import { createHash } from "node:crypto";
@@ -13,7 +12,6 @@ import { readManifestEntry } from "./manifest-io.js";
 import { parseBlocks } from "./parse-blocks.js";
 import { globTranslationPaths } from "./paths.js";
 import { fingerprintBlock } from "./split-blocks.js";
-import { isInvalidCompletion } from "./status.js";
 import type { ManifestEntry } from "./types.js";
 
 export interface CheckResult {
@@ -66,10 +64,6 @@ export function checkEntry(
         errors.push(
           `translation block ${i}: kind "${translationNodes[i].type}" doesn't match original's "${entry.blocks[i].kind}"`,
         );
-      }
-      const status = entry.blocks[i].status;
-      if (isInvalidCompletion(status, translationNodes[i])) {
-        errors.push(`block ${i}: status "${status}" but still holds the untranslated placeholder`);
       }
     }
   }
